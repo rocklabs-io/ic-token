@@ -2,7 +2,7 @@ import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
 
 shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
-	private stable var owner_ : Principal = _owner;
+    private stable var owner_ : Principal = _owner;
     private stable var name_ : Text = _name;
     private stable var decimals_ : Nat = _decimals;
     private stable var symbol_ : Text = _symbol;
@@ -11,7 +11,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     private var balances =  HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
     private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat>>(1, Principal.equal, Principal.hash);
 
-	balances.put(owner_, totalSupply_);
+    balances.put(owner_, totalSupply_);
 
     public shared(msg) func transfer(to: Principal, value: Nat) : async Bool {
         switch (balances.get(msg.caller)) {
@@ -95,9 +95,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         }
     };
 
-	public shared(msg) func mint(to: Principal, value: Nat): async Bool {
-		assert(msg.caller == owner_);
-		switch (balances.get(to)) {
+    public shared(msg) func mint(to: Principal, value: Nat): async Bool {
+        assert(msg.caller == owner_);
+        switch (balances.get(to)) {
             case (?to_balance) {
                 balances.put(to, to_balance + value);
                 totalSupply_ += value;
@@ -109,11 +109,11 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                 return true;
             };
         }
-	};
+    };
 
-	public shared(msg) func burn(from: Principal, value: Nat): async Bool {
-		assert(msg.caller == owner_ or msg.caller == from);
-		switch (balances.get(from)) {
+    public shared(msg) func burn(from: Principal, value: Nat): async Bool {
+        assert(msg.caller == owner_ or msg.caller == from);
+        switch (balances.get(from)) {
             case (?from_balance) {
                 if(from_balance >= value) {
                     balances.put(from, from_balance - value);
@@ -127,7 +127,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                 return false;
             };
         }
-	};
+    };
 
     public query func balanceOf(who: Principal) : async Nat {
         switch (balances.get(who)) {
@@ -174,9 +174,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         return symbol_;
     };
 
-	public query func owner() : async Principal {
-		return owner_;
-	};
+    public query func owner() : async Principal {
+        return owner_;
+    };
 
     // Return the principal of the message caller/user identity
     public shared(msg) func callerPrincipal() : async Principal {
