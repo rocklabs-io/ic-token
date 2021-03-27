@@ -13,32 +13,28 @@ BOB_HOME=$(mktemp -d -t bob-temp)
 DAN_HOME=$(mktemp -d -t dan-temp)
 HOME=$ALICE_HOME
 
-dfx start --background
-dfx canister create --all
-dfx build
-dfx canister install --all
-
 ALICE_PUBLIC_KEY="principal \"$( \
-    HOME=$ALICE_HOME dfx canister call token callerPrincipal \
-        | awk -F '"' '{printf $2}' \
+    HOME=$ALICE_HOME dfx identity get-principal
 )\""
 BOB_PUBLIC_KEY="principal \"$( \
-    HOME=$BOB_HOME dfx canister call token callerPrincipal \
-        | awk -F '"' '{printf $2}' \
+    HOME=$BOB_HOME dfx identity get-principal
 )\""
 DAN_PUBLIC_KEY="principal \"$( \
-    HOME=$DAN_HOME dfx canister call token callerPrincipal \
-        | awk -F '"' '{printf $2}' \
+    HOME=$DAN_HOME dfx identity get-principal
 )\""
+
+dfx start --background
+dfx canister create token
+dfx build
+
+eval dfx canister install --argument="'(\"Test Token\", \"TT\", 3, 10000000, $ALICE_PUBLIC_KEY)'" token
 
 echo Alice id = $ALICE_PUBLIC_KEY
 echo Bob id = $BOB_PUBLIC_KEY
 echo Dan id = $DAN_PUBLIC_KEY
 
-echo 
-echo == Initialize token template.
-echo 
-eval dfx canister call token initialize "'(\"test token\", \"TT\", 0, 1000)'"
+echo == Get owner
+eval dfx canister call token owner
 
 echo
 echo == Initial token balances for Alice and Bob.
