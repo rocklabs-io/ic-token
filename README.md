@@ -7,6 +7,7 @@ See [demo.sh](./demo.sh).
 * mint/burn functions
 * refactor to actor class
 * permission management: mint/burn
+* [error handling](https://sdk.dfinity.org/docs/language-guide/errors.html)
 * token standard draft
 
 ## Reference
