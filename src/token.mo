@@ -13,11 +13,15 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
 
     balances.put(owner_, totalSupply_);
 
+    /// Transfers value amount of tokens to Principal to.
     public shared(msg) func transfer(to: Principal, value: Nat) : async Bool {
         switch (balances.get(msg.caller)) {
             case (?from_balance) {
                 if (from_balance >= value) {
                     var from_balance_new = from_balance - value;
+                    assert(from_balance_new <= from_balance);
+                    balances.put(msg.caller, from_balance_new);
+
                     var to_balance_new = switch (balances.get(to)) {
                         case (?to_balance) {
                             to_balance + value;
@@ -26,9 +30,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                             value;
                         };
                     };
-                    assert(from_balance_new <= from_balance);
                     assert(to_balance_new >= value);
-                    balances.put(msg.caller, from_balance_new);
                     balances.put(to, to_balance_new);
                     return true;
                 } else {
@@ -41,6 +43,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         }
     };
 
+    /// Transfers value amount of tokens from Principal from to Principal to.
     public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat) : async Bool {
         switch (balances.get(from), allowances.get(from)) {
             case (?from_balance, ?allowance_from) {
@@ -48,7 +51,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                     case (?allowance) {
                         if (from_balance >= value and allowance >= value) {
                             var from_balance_new = from_balance - value;
-                            var allowance_new = allowance - value;
+                            assert(from_balance_new <= from_balance);
+                            balances.put(from, from_balance_new);
+
                             var to_balance_new = switch (balances.get(to)) {
                                 case (?to_balance) {
                                    to_balance + value;
@@ -57,12 +62,13 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                                     value;
                                 };
                             };
-                            assert(from_balance_new <= from_balance);
                             assert(to_balance_new >= value);
+                            balances.put(to, to_balance_new);
+
+                            var allowance_new = allowance - value;
+                            assert(allowance_new <= allowance);
                             allowance_from.put(msg.caller, allowance_new);
                             allowances.put(from, allowance_from);
-                            balances.put(from, from_balance_new);
-                            balances.put(to, to_balance_new);
                             return true;                            
                         } else {
                             return false;
@@ -79,6 +85,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         }
     };
 
+    /// Allows spender to withdraw from your account multiple times, up to the value amount. 
+    /// If this function is called again it overwrites the current allowance with value.
     public shared(msg) func approve(spender: Principal, value: Nat) : async Bool {
         switch(allowances.get(msg.caller)) {
             case (?allowances_caller) {
@@ -95,6 +103,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         }
     };
 
+    /// Creates value tokens and assigns them to Principal to, increasing the total supply.
     public shared(msg) func mint(to: Principal, value: Nat): async Bool {
         assert(msg.caller == owner_);
         switch (balances.get(to)) {
@@ -176,10 +185,5 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
 
     public query func owner() : async Principal {
         return owner_;
-    };
-
-    // Return the principal of the message caller/user identity
-    public shared(msg) func callerPrincipal() : async Principal {
-        return msg.caller;
     };
 };
