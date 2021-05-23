@@ -1,28 +1,32 @@
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
+import Utils "./Utils";
+import Char "mo:base/Char";
 
-shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
-    private stable var owner_ : Principal = _owner;
+shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat) {
+    type Account = Utils.AccountIdentifier;
+
+    private stable var owner_ : Account = Utils.principalToAccount(msg.caller);
     private stable var name_ : Text = _name;
     private stable var decimals_ : Nat = _decimals;
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat = _totalSupply;
-
-    private var balances =  HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
-    private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat>>(1, Principal.equal, Principal.hash);
-
+    private var balances =  HashMap.HashMap<Account, Nat>(1, Utils.equal, Utils.hash);
+    private var allowances = HashMap.HashMap<Account, HashMap.HashMap<Account, Nat>>(1, Utils.equal, Utils.hash);
     balances.put(owner_, totalSupply_);
 
-    /// Transfers value amount of tokens to Principal to.
-    public shared(msg) func transfer(to: Principal, value: Nat) : async Bool {
-        switch (balances.get(msg.caller)) {
+    /// Transfers value amount of tokens to Account to.
+    public shared(msg) func transfer(to: Text, value: Nat) : async Bool {
+        let caller = Utils.principalToAccount(msg.caller);
+        let toer = Utils.textToAccount(to);
+        switch (balances.get(caller)) {
             case (?from_balance) {
                 if (from_balance >= value) {
-                    var from_balance_new = from_balance - value;
+                    var from_balance_new : Nat = from_balance - value;
                     assert(from_balance_new <= from_balance);
-                    balances.put(msg.caller, from_balance_new);
+                    balances.put(caller, from_balance_new);
 
-                    var to_balance_new = switch (balances.get(to)) {
+                    var to_balance_new = switch (balances.get(toer)) {
                         case (?to_balance) {
                             to_balance + value;
                         };
@@ -31,7 +35,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                         };
                     };
                     assert(to_balance_new >= value);
-                    balances.put(to, to_balance_new);
+                    balances.put(toer, to_balance_new);
                     return true;
                 } else {
                     return false;
@@ -43,18 +47,21 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         }
     };
 
-    /// Transfers value amount of tokens from Principal from to Principal to.
-    public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat) : async Bool {
-        switch (balances.get(from), allowances.get(from)) {
+    /// Transfers value amount of tokens from Account from to Account to.
+    public shared(msg) func transferFrom(from: Text, to: Text, value: Nat) : async Bool {
+        let caller = Utils.principalToAccount(msg.caller);
+        let toer = Utils.textToAccount(to);
+        let fromer = Utils.textToAccount(from);
+        switch (balances.get(fromer), allowances.get(fromer)) {
             case (?from_balance, ?allowance_from) {
-                switch (allowance_from.get(msg.caller)) {
+                switch (allowance_from.get(caller)) {
                     case (?allowance) {
                         if (from_balance >= value and allowance >= value) {
-                            var from_balance_new = from_balance - value;
+                            var from_balance_new : Nat = from_balance - value;
                             assert(from_balance_new <= from_balance);
-                            balances.put(from, from_balance_new);
+                            balances.put(fromer, from_balance_new);
 
-                            var to_balance_new = switch (balances.get(to)) {
+                            var to_balance_new = switch (balances.get(toer)) {
                                 case (?to_balance) {
                                    to_balance + value;
                                 };
@@ -63,12 +70,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                                 };
                             };
                             assert(to_balance_new >= value);
-                            balances.put(to, to_balance_new);
+                            balances.put(toer, to_balance_new);
 
-                            var allowance_new = allowance - value;
+                            var allowance_new : Nat = allowance - value;
                             assert(allowance_new <= allowance);
-                            allowance_from.put(msg.caller, allowance_new);
-                            allowances.put(from, allowance_from);
+                            allowance_from.put(caller, allowance_new);
+                            allowances.put(fromer, allowance_from);
                             return true;                            
                         } else {
                             return false;
@@ -87,45 +94,51 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
     /// If this function is called again it overwrites the current allowance with value.
-    public shared(msg) func approve(spender: Principal, value: Nat) : async Bool {
-        switch(allowances.get(msg.caller)) {
+    public shared(msg) func approve(spender: Text, value: Nat) : async Bool {
+        let caller = Utils.principalToAccount(msg.caller);
+        let spend = Utils.textToAccount(spender);
+        switch(allowances.get(caller)) {
             case (?allowances_caller) {
-                allowances_caller.put(spender, value);
-                allowances.put(msg.caller, allowances_caller);
+                allowances_caller.put(spend, value);
+                allowances.put(caller, allowances_caller);
                 return true;
             };
             case (_) {
-                var temp = HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
-                temp.put(spender, value);
-                allowances.put(msg.caller, temp);
+                var temp = HashMap.HashMap<Account, Nat>(1, Utils.equal, Utils.hash);
+                temp.put(spend, value);
+                allowances.put(caller, temp);
                 return true;
             };
         }
     };
 
     /// Creates value tokens and assigns them to Principal to, increasing the total supply.
-    public shared(msg) func mint(to: Principal, value: Nat): async Bool {
-        assert(msg.caller == owner_);
-        switch (balances.get(to)) {
+    public shared(msg) func mint(to: Text, value: Nat): async Bool {
+        let caller = Utils.principalToAccount(msg.caller);
+        let toer = Utils.textToAccount(to);
+        assert(caller == owner_);
+        switch (balances.get(toer)) {
             case (?to_balance) {
-                balances.put(to, to_balance + value);
+                balances.put(toer, to_balance + value);
                 totalSupply_ += value;
                 return true;
             };
             case (_) {
-                balances.put(to, value);
+                balances.put(toer, value);
                 totalSupply_ += value;
                 return true;
             };
         }
     };
 
-    public shared(msg) func burn(from: Principal, value: Nat): async Bool {
-        assert(msg.caller == owner_ or msg.caller == from);
-        switch (balances.get(from)) {
+    public shared(msg) func burn(from: Text, value: Nat): async Bool {
+        let caller = Utils.principalToAccount(msg.caller);
+        let fromer = Utils.textToAccount(from);
+        assert(caller == owner_ or caller == fromer);
+        switch (balances.get(fromer)) {
             case (?from_balance) {
                 if(from_balance >= value) {
-                    balances.put(from, from_balance - value);
+                    balances.put(fromer, from_balance - value);
                     totalSupply_ -= value;
                     return true;
                 } else {
@@ -138,8 +151,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         }
     };
 
-    public query func balanceOf(who: Principal) : async Nat {
-        switch (balances.get(who)) {
+    public query func balanceOf(who: Text) : async Nat {
+        let whoer = Utils.textToAccount(who);
+        switch (balances.get(whoer)) {
             case (?balance) {
                 return balance;
             };
@@ -149,10 +163,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         }
     };
 
-    public query func allowance(owner: Principal, spender: Principal) : async Nat {
-        switch(allowances.get(owner)) {
+    public query func allowance(owner: Text, spender: Text) : async Nat {
+        let own = Utils.textToAccount(owner);
+        let spend = Utils.textToAccount(spender);
+        switch(allowances.get(own)) {
             case (?allowance_owner) {
-                switch(allowance_owner.get(spender)) {
+                switch(allowance_owner.get(spend)) {
                     case (?allowance) {
                         return allowance;
                     };
@@ -183,7 +199,11 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         return symbol_;
     };
 
-    public query func owner() : async Principal {
-        return owner_;
+    public query func owner() : async Text {
+        return Utils.accountToText(owner_);
+    };
+
+    public shared(msg) func whoami() : async Text {
+        return Utils.accountToText(Utils.principalToAccount(msg.caller));
     };
 };

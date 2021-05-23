@@ -3,5 +3,10 @@
     "token": {
       "main": "src/token.mo"
     }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "vessel sources"
+    }
   }
 }
