@@ -1,4 +1,3 @@
 {
-  dependencies = [ "base", "matchers", "sha224" ],
-  compiler = None Text
+  dependencies = [ "base", "sha224" ], compiler = Some "0.6.1"
 }

@@ -20,6 +20,7 @@ module {
     ];
     private let base : Nat8 = 0x10;
 
+    /// account identitier
     public type AccountIdentifier = {
         hash: [Nat8];
     };
@@ -51,6 +52,7 @@ module {
         Array.equal<Nat8>(a.hash, b.hash, Nat8.equal)
     };
 
+    /// Return the Account Identifier of the Principal.
     public func principalToAccount(p : Principal) : AccountIdentifier {
         let digest = SHA224.Digest();
         digest.write([10, 97, 99, 99, 111, 117, 110, 116, 45, 105, 100]:[Nat8]); // b"\x0Aaccount-id"
@@ -62,6 +64,7 @@ module {
         return {hash=hash_bytes;}: AccountIdentifier;
     };
 
+    /// Return the Text of the Account Identifier.
     public func accountToText(p : AccountIdentifier) : Text {
         let crc = CRC32.crc32(p.hash);
         let aid_bytes = Array.append<Nat8>(crc, p.hash);
@@ -69,6 +72,7 @@ module {
         return encode(aid_bytes);
     };
 
+    /// Return the Account Identifier of the Text.
     public func textToAccount(t : Text) : AccountIdentifier {
         var map = HashMap.HashMap<Nat, Nat8>(1, Nat.equal, Hash.hash);
         for (num in Iter.range(48, 57)) {

@@ -1,6 +1,5 @@
-/**
-CRC32.mo based on: https://github.com/enzoh/motoko-crc/blob/master/src/CRC8.mo
- */
+/// CRC32.mo based on: https://github.com/enzoh/motoko-crc/blob/master/src/CRC8.mo
+/// https://github.com/stephenandrews/motoko-crc
 
 import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
@@ -53,6 +52,7 @@ module {
     0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
   ];
   
+  /// Returns the 4 bytes result of crc32-ieee
   public func crc32(data : [Nat8]) : [Nat8] {
     var crc : Nat32 = 4294967295;
     for (byte in data.vals()) {
