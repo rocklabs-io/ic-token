@@ -230,7 +230,10 @@ echo
 echo == Dan grants Alice permission to spend 59 of his tokens 
 echo
 
-eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 59)'"
+HASH=$(eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 59)'")
+echo $HASH
+HASH=\"${HASH:8:64}\"
+echo $HASH
 
 echo
 echo == Dan allowances
@@ -242,5 +245,14 @@ echo Dan allowance for Bob = $( \
 echo Dan allowance for Alice = $( \
     eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $ALICE_PUBLIC_KEY)'" \
 )
+
+eval dfx canister --no-wallet call token allHistory
+
+eval dfx canister --no-wallet call token getHistoryByAccount "'($ALICE_PUBLIC_KEY)'";
+eval dfx canister --no-wallet call token getHistoryByAccount "'($BOB_PUBLIC_KEY)'";
+eval dfx canister --no-wallet call token getHistoryByAccount "'($DAN_PUBLIC_KEY)'";
+
+eval dfx canister --no-wallet call token getHistoryByHash "'($HASH)'";
+
 
 dfx stop
