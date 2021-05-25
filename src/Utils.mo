@@ -25,7 +25,7 @@ module {
         hash: [Nat8];
     };
 
-    func encode(array : [Nat8]) : Text {
+    public func encode(array : [Nat8]) : Text {
         Array.foldLeft<Nat8, Text>(array, "", func (accum, u8) {
             accum # nat8ToText(u8);
         });
@@ -75,13 +75,16 @@ module {
     /// Return the Account Identifier of the Text.
     public func textToAccount(t : Text) : AccountIdentifier {
         var map = HashMap.HashMap<Nat, Nat8>(1, Nat.equal, Hash.hash);
+        // '0': 48 -> 0; '9': 57 -> 9
         for (num in Iter.range(48, 57)) {
             map.put(num, Nat8.fromNat(num-48));
         };
+        // 'a': 97 -> 10; 'f': 102 -> 15
         for (lowcase in Iter.range(97, 102)) {
             map.put(lowcase, Nat8.fromNat(lowcase-97+10));
         };
-        for (uppercase in Iter.range(65, 68)) {
+        // 'A': 65 -> 10; 'F': 70 -> 15
+        for (uppercase in Iter.range(65, 70)) {
             map.put(uppercase, Nat8.fromNat(uppercase-65+10));
         };
         let p = Iter.toArray(Iter.map(Text.toIter(t), func (x: Char) : Nat { Nat32.toNat(Char.toNat32(x)) }));
