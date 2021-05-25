@@ -9,7 +9,6 @@ import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
 
 module {
-    type Account = Utils.AccountIdentifier;
     type Operation = {
         #mint;
         #burn;
@@ -21,8 +20,8 @@ module {
         #failed;
     };
     public type Mint = {
-        caller: Account;
-        to: Account;
+        caller: Text;
+        to: Text;
         amount: Nat;
         fee: ?Nat;
         memo: ?Nat64;
@@ -30,25 +29,25 @@ module {
     };
   
     public type Burn = {
-        caller: Account;
-        from: Account;
+        caller: Text;
+        from: Text;
         amount: Nat;
         fee: ?Nat;
         memo: ?Nat64;
         timestamp: Time.Time;
     };
     public type Transfer = {
-        caller: Account;
-        from: Account;
-        to: Account;
+        caller: Text;
+        from: Text;
+        to: Text;
         amount: Nat;
         fee: ?Nat;
         memo: ?Nat64;
         timestamp: Time.Time;
     };
     public type Approve = {
-        caller: Account;
-        allowed: Account;
+        caller: Text;
+        allowed: Text;
         amount: Nat;
         fee: ?Nat;
         memo: ?Nat64;
@@ -84,8 +83,8 @@ module {
         };
         if (not Option.isNull(h.mint)) {
             let m = Option.unwrap(h.mint);
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), m.caller.hash));
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), m.to.hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(m.caller).hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(m.to).hash));
             bytes := Array.thaw(Array.append(Array.freeze(bytes), natTobytes(m.amount)));
             if (not Option.isNull(m.fee)) {
                 let f = Option.unwrap(m.fee);
@@ -99,8 +98,8 @@ module {
         };
         if (not Option.isNull(h.burn)) {
             let b = Option.unwrap(h.burn);
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), b.caller.hash));
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), b.from.hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(b.caller).hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(b.from).hash));
             bytes := Array.thaw(Array.append(Array.freeze(bytes), natTobytes(b.amount)));
             if (not Option.isNull(b.fee)) {
                 let f = Option.unwrap(b.fee);
@@ -114,9 +113,9 @@ module {
         };
         if (not Option.isNull(h.transfer)) {
             let t = Option.unwrap(h.transfer);
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), t.caller.hash));
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), t.from.hash));
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), t.to.hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(t.caller).hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(t.from).hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(t.to).hash));
             bytes := Array.thaw(Array.append(Array.freeze(bytes), natTobytes(t.amount)));
             if (not Option.isNull(t.fee)) {
                 let f = Option.unwrap(t.fee);
@@ -130,8 +129,8 @@ module {
         };
         if (not Option.isNull(h.approve)) {
             let a = Option.unwrap(h.approve);
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), a.caller.hash));
-            bytes := Array.thaw(Array.append(Array.freeze(bytes), a.allowed.hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(a.caller).hash));
+            bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(a.allowed).hash));
             bytes := Array.thaw(Array.append(Array.freeze(bytes), natTobytes(a.amount)));
             if (not Option.isNull(a.fee)) {
                 let f = Option.unwrap(a.fee);
@@ -163,7 +162,7 @@ module {
     };
 
     public func transferMake(
-        caller: Account, from: Account, to: Account, amount: Nat,
+        caller: Text, from: Text, to: Text, amount: Nat,
         fee: ?Nat, memo: ?Nat64, index: Nat, status: Status
     ) : (History, Text) {
         let t : Transfer = {
@@ -199,7 +198,7 @@ module {
     };
 
     public func approveMake(
-        caller: Account, allowed: Account, amount: Nat, 
+        caller: Text, allowed: Text, amount: Nat, 
         fee: ?Nat, memo: ?Nat64, index: Nat, status: Status
     ) : (History, Text) {
         let a : Approve = {
@@ -234,7 +233,7 @@ module {
     };
 
     public func mintMake(
-        caller: Account, to: Account, amount: Nat,
+        caller: Text, to: Text, amount: Nat,
         fee: ?Nat, memo: ?Nat64, index: Nat, status: Status
     ) : (History, Text) {
         let m : Mint = {
@@ -269,7 +268,7 @@ module {
     };        
 
     public func burnMake(
-       caller: Account, from: Account, amount: Nat,
+       caller: Text, from: Text, amount: Nat,
        fee: ?Nat, memo: ?Nat64, index: Nat, status: Status 
     ) : (History, Text) {
         let b : Burn = {

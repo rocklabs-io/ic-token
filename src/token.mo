@@ -20,8 +20,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     type Transfer = History.Transfer;
     type Approve = History.Approve;
 
-    
-
     private stable var owner_ : Account = Utils.principalToAccount(msg.caller);
     private stable var name_ : Text = _name;
     private stable var decimals_ : Nat = _decimals;
@@ -31,8 +29,10 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     private var allowances = HashMap.HashMap<Account, HashMap.HashMap<Account, Nat>>(1, Utils.equal, Utils.hash);
     
     private var history : [var History] = [var];
+    // tx hash to history
     private var history_map = HashMap.HashMap<Text, History>(1, Text.equal, Text.hash);
-    private var history_acc = HashMap.HashMap<Account, [var History]>(1, Utils.equal, Utils.hash);
+    // account to it's history
+    private var history_acc = HashMap.HashMap<Text, [var History]>(1, Text.equal, Text.hash);
 
     balances.put(owner_, totalSupply_);
 
@@ -59,33 +59,52 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                     assert(to_balance_new >= value);
                     balances.put(toer, to_balance_new);
 
-                    let (h, hash_h) = History.transferMake(caller, caller, toer, value, null, null, history.size(), #success);
+                    let (h, hash_h) = History.transferMake(Utils.accountToText(caller), Utils.accountToText(caller), Utils.accountToText(toer), value, null, null, history.size(), #success);
                     history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
                     history_map.put(hash_h, h);
-                    switch (history_acc.get(caller)) {
+                    switch (history_acc.get(Utils.accountToText(caller))) {
                         case (?hist_acc) {
                             var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                            history_acc.put(caller, hist_new);
+                            history_acc.put(Utils.accountToText(caller), hist_new);
                         };
                         case (_) {
-                            history_acc.put(caller, Array.thaw(Array.make(h)));
+                            history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
                         };
                     };
+                    switch (history_acc.get(Utils.accountToText(toer))) {
+                        case (?hist_acc) {
+                            var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                            history_acc.put(Utils.accountToText(toer), hist_new);
+                        };
+                        case (_) {
+                            history_acc.put(Utils.accountToText(toer), Array.thaw(Array.make(h)));
+                        };
+                    };
+
                     return (true, hash_h);
                 };
             };
             case (_) {};
         };
-        let (h, hash_h) = History.transferMake(caller, caller, toer, value, null, null, history.size(), #failed);
+        let (h, hash_h) = History.transferMake(Utils.accountToText(caller), Utils.accountToText(caller), Utils.accountToText(toer), value, null, null, history.size(), #failed);
         history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
         history_map.put(hash_h, h);
-        switch (history_acc.get(caller)) {
+        switch (history_acc.get(Utils.accountToText(caller))) {
             case (?hist_acc) {
                 var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                history_acc.put(caller, hist_new);
+                history_acc.put(Utils.accountToText(caller), hist_new);
             };
             case (_) {
-                history_acc.put(caller, Array.thaw(Array.make(h)));
+                history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
+            };
+        }; 
+        switch (history_acc.get(Utils.accountToText(toer))) {
+            case (?hist_acc) {
+                var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                history_acc.put(Utils.accountToText(toer), hist_new);
+            };
+            case (_) {
+                history_acc.put(Utils.accountToText(toer), Array.thaw(Array.make(h)));
             };
         };                    
         return (false, hash_h);        
@@ -122,18 +141,36 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                             allowance_from.put(caller, allowance_new);
                             allowances.put(fromer, allowance_from);
 
-                            let (h, hash_h) = History.transferMake(caller, fromer, toer, value, null, null, history.size(), #success);
+                            let (h, hash_h) = History.transferMake(Utils.accountToText(caller), Utils.accountToText(fromer), Utils.accountToText(toer), value, null, null, history.size(), #success);
                             history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
                             history_map.put(hash_h, h);
-                            switch (history_acc.get(caller)) {
+                            switch (history_acc.get(Utils.accountToText(caller))) {
                                 case (?hist_acc) {
                                     var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                                    history_acc.put(caller, hist_new);
+                                    history_acc.put(Utils.accountToText(caller), hist_new);
                                 };
                                 case (_) {
-                                    history_acc.put(caller, Array.thaw(Array.make(h)));
+                                    history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
                                 };
                             };
+                            switch (history_acc.get(Utils.accountToText(fromer))) {
+                                case (?hist_acc) {
+                                    var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                                    history_acc.put(Utils.accountToText(fromer), hist_new);
+                                };
+                                case (_) {
+                                    history_acc.put(Utils.accountToText(fromer), Array.thaw(Array.make(h)));
+                                };
+                            }; 
+                            switch (history_acc.get(Utils.accountToText(toer))) {
+                                case (?hist_acc) {
+                                    var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                                    history_acc.put(Utils.accountToText(toer), hist_new);
+                                };
+                                case (_) {
+                                    history_acc.put(Utils.accountToText(toer), Array.thaw(Array.make(h)));
+                                };
+                            };                                                       
                             return (true, hash_h);
                         };
                     };
@@ -142,18 +179,36 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
             };
             case (_) {};
         };
-        let (h, hash_h) = History.transferMake(caller, fromer, toer, value, null, null, history.size(), #failed);
+        let (h, hash_h) = History.transferMake(Utils.accountToText(caller), Utils.accountToText(fromer), Utils.accountToText(toer), value, null, null, history.size(), #failed);
         history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
         history_map.put(hash_h, h);
-        switch (history_acc.get(caller)) {
+        switch (history_acc.get(Utils.accountToText(caller))) {
             case (?hist_acc) {
                 var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                history_acc.put(caller, hist_new);
+                history_acc.put(Utils.accountToText(caller), hist_new);
             };
             case (_) {
-                history_acc.put(caller, Array.thaw(Array.make(h)));
+                history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
             };
-        };            
+        };
+        switch (history_acc.get(Utils.accountToText(fromer))) {
+            case (?hist_acc) {
+                var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                history_acc.put(Utils.accountToText(fromer), hist_new);
+            };
+            case (_) {
+                history_acc.put(Utils.accountToText(fromer), Array.thaw(Array.make(h)));
+            };
+        };
+        switch (history_acc.get(Utils.accountToText(toer))) {
+            case (?hist_acc) {
+                var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                history_acc.put(Utils.accountToText(toer), hist_new);
+            };
+            case (_) {
+                history_acc.put(Utils.accountToText(toer), Array.thaw(Array.make(h)));
+            };
+        };                   
         return (false, hash_h);
     };
 
@@ -175,16 +230,25 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                 allowances.put(caller, temp);
             };
         };
-        let (h, hash_h) = History.approveMake(caller, spend, value, null, null, history.size(), #success);
+        let (h, hash_h) = History.approveMake(Utils.accountToText(caller), Utils.accountToText(spend), value, null, null, history.size(), #success);
         history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
         history_map.put(hash_h, h);
-        switch (history_acc.get(caller)) {
+        switch (history_acc.get(Utils.accountToText(caller))) {
             case (?hist_acc) {
                 var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                history_acc.put(caller, hist_new);
+                history_acc.put(Utils.accountToText(caller), hist_new);
             };
             case (_) {
-                history_acc.put(caller, Array.thaw(Array.make(h)));
+                history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
+            };
+        };
+        switch (history_acc.get(Utils.accountToText(spend))) {
+            case (?hist_acc) {
+                var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                history_acc.put(Utils.accountToText(spend), hist_new);
+            };
+            case (_) {
+                history_acc.put(Utils.accountToText(spend), Array.thaw(Array.make(h)));
             };
         };
         return (true, hash_h);
@@ -205,16 +269,25 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                 totalSupply_ += value;
             };
         };
-        let (h, hash_h) = History.mintMake(caller, toer, value, null, null, history.size(), #success);
+        let (h, hash_h) = History.mintMake(Utils.accountToText(caller), Utils.accountToText(toer), value, null, null, history.size(), #success);
         history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
         history_map.put(hash_h, h);
-        switch (history_acc.get(caller)) {
+        switch (history_acc.get(Utils.accountToText(caller))) {
             case (?hist_acc) {
                 var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                history_acc.put(caller, hist_new);
+                history_acc.put(Utils.accountToText(caller), hist_new);
             };
             case (_) {
-                history_acc.put(caller, Array.thaw(Array.make(h)));
+                history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
+            };
+        };
+        switch (history_acc.get(Utils.accountToText(toer))) {
+            case (?hist_acc) {
+                var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                history_acc.put(Utils.accountToText(toer), hist_new);
+            };
+            case (_) {
+                history_acc.put(Utils.accountToText(toer), Array.thaw(Array.make(h)));
             };
         };
         return (true, hash_h);
@@ -231,33 +304,51 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                     balances.put(fromer, from_balance - value);
                     totalSupply_ -= value;
 
-                    let (h, hash_h) = History.burnMake(caller, fromer, value, null, null, history.size(), #success);
+                    let (h, hash_h) = History.burnMake(Utils.accountToText(caller), Utils.accountToText(fromer), value, null, null, history.size(), #success);
                     history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
                     history_map.put(hash_h, h);
-                    switch (history_acc.get(caller)) {
+                    switch (history_acc.get(Utils.accountToText(caller))) {
                         case (?hist_acc) {
                             var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                            history_acc.put(caller, hist_new);
+                            history_acc.put(Utils.accountToText(caller), hist_new);
                         };
                         case (_) {
-                            history_acc.put(caller, Array.thaw(Array.make(h)));
+                            history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
                         };
                     };
+                    switch (history_acc.get(Utils.accountToText(fromer))) {
+                        case (?hist_acc) {
+                            var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                            history_acc.put(Utils.accountToText(fromer), hist_new);
+                        };
+                        case (_) {
+                            history_acc.put(Utils.accountToText(fromer), Array.thaw(Array.make(h)));
+                        };
+                    };                    
                     return (true, hash_h);
                 };
             };
             case (_) {};
         };
-        let (h, hash_h) = History.burnMake(caller, fromer, value, null, null, history.size(), #failed);
+        let (h, hash_h) = History.burnMake(Utils.accountToText(caller), Utils.accountToText(fromer), value, null, null, history.size(), #failed);
         history := Array.thaw(Array.append(Array.freeze(history), Array.make(h)));
         history_map.put(hash_h, h);
-        switch (history_acc.get(caller)) {
+        switch (history_acc.get(Utils.accountToText(caller))) {
             case (?hist_acc) {
                 var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
-                history_acc.put(caller, hist_new);
+                history_acc.put(Utils.accountToText(caller), hist_new);
             };
             case (_) {
-                history_acc.put(caller, Array.thaw(Array.make(h)));
+                history_acc.put(Utils.accountToText(caller), Array.thaw(Array.make(h)));
+            };
+        };
+        switch (history_acc.get(Utils.accountToText(fromer))) {
+            case (?hist_acc) {
+                var hist_new : [var History] = Array.thaw(Array.append(Array.freeze(hist_acc), Array.make(h)));
+                history_acc.put(Utils.accountToText(fromer), hist_new);
+            };
+            case (_) {
+                history_acc.put(Utils.accountToText(fromer), Array.thaw(Array.make(h)));
             };
         };
         return (false, hash_h);        
@@ -330,7 +421,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     /// Get update call history by account.
     public query func getHistoryByAccount(a: Text) : async ?[History] {
         let account = Utils.textToAccount(a);
-        switch (history_acc.get(account)) {
+        switch (history_acc.get(Utils.accountToText(account))) {
             case (?hist_arr) {
                 let res = Array.freeze(hist_arr);
                 return ?res;
