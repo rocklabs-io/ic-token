@@ -21,7 +21,7 @@ dfx start --background
 dfx canister --no-wallet create token
 dfx build
 
-eval dfx canister --no-wallet install --argument="'(\"Test Token\", \"TT\", 3, 10000000)'" token
+eval dfx canister --no-wallet install --argument="'(\"Test Token\", \"TT\", 3:nat64, 10000000:nat64)'" token
 
 ALICE_PUBLIC_KEY=$(HOME=$ALICE_HOME dfx canister --no-wallet call token whoami)
 ALICE_PUBLIC_KEY=\"${ALICE_PUBLIC_KEY:2:64}\"

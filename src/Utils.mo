@@ -11,7 +11,7 @@ import Nat "mo:base/Nat";
 import Option "mo:base/Option";
 import Nat32 "mo:base/Nat32";
 import Iter "mo:base/Iter";
-import Text "mo:base/Text"
+import Text "mo:base/Text";
 
 module {
     private let symbols = [
@@ -89,7 +89,13 @@ module {
         };
         let p = Iter.toArray(Iter.map(Text.toIter(t), func (x: Char) : Nat { Nat32.toNat(Char.toNat32(x)) }));
         var res : [var Nat8] = [var];
-        
+        var crc : [var Nat8] = [var];
+        for (i in Iter.range(0, 3)) {            
+            let a = Option.unwrap(map.get(p[i*2]));
+            let b = Option.unwrap(map.get(p[i*2 + 1]));
+            let c = 16*a + b;
+            crc := Array.thaw(Array.append(Array.freeze(crc), Array.make(c)));
+        };        
         for (i in Iter.range(4, 31)) {            
             let a = Option.unwrap(map.get(p[i*2]));
             let b = Option.unwrap(map.get(p[i*2 + 1]));
@@ -97,6 +103,7 @@ module {
             res := Array.thaw(Array.append(Array.freeze(res), Array.make(c)));
         };
         let result = Array.freeze(res);
+        assert(Array.freeze(crc) == CRC32.crc32(result));
         return {hash = result;} : AccountIdentifier;
     };
 };
