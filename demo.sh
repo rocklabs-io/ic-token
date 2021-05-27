@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+# set -e
 
 echo PATH = $PATH
 
@@ -193,41 +193,7 @@ echo Dan allowance for Alice = $( \
 )
 
 echo
-echo == Dan change Bobs permission to spend 40 of this tokens instead of 50
-echo
-
-eval dfx canister --no-wallet call token approve "'($BOB_PUBLIC_KEY, 40)'"
-
-echo
-echo == Dan allowances
-echo
-
-echo Dan allowance for Bob = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $BOB_PUBLIC_KEY)'" \
-)
-echo Dan allowance for Alice = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $ALICE_PUBLIC_KEY)'" \
-)
-
-echo
-echo == Dan grants Alice permission to spend 60 of this tokens
-echo
-
-eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 60)'"
-
-echo
-echo == Dan allowances
-echo
-
-echo Dan allowance for Bob = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $BOB_PUBLIC_KEY)'" \
-)
-echo Dan allowance for Alice = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $ALICE_PUBLIC_KEY)'" \
-)
-
-echo
-echo == Dan grants Alice permission to spend 59 of his tokens 
+echo == Dan grants Alice permission to spend 59 of his tokens instead of 50
 echo
 
 HASH=$(eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 59)'")
@@ -246,13 +212,96 @@ echo Dan allowance for Alice = $( \
     eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $ALICE_PUBLIC_KEY)'" \
 )
 
+echo
+echo == Dan mint token to self, False;
+echo
+
+eval dfx canister --no-wallet call token mint "'($DAN_PUBLIC_KEY, 50)'"
+
+
+echo
+echo == Dan burn alice token, 50, False;
+echo
+
+eval dfx canister --no-wallet call token burn "'($ALICE_PUBLIC_KEY, 50)'"
+
+echo
+echo == Dan burn self token, 1000, False;
+echo
+
+eval dfx canister --no-wallet call token burn "'($DAN_PUBLIC_KEY, 1000)'"
+
+echo
+echo == totalSupply
+echo
+
+eval dfx canister --no-wallet call token totalSupply
+
+HOME=$ALICE_HOME
+echo
+echo == Alice burn self token, 50, success;
+echo
+
+eval dfx canister --no-wallet call token burn "'($ALICE_PUBLIC_KEY, 50)'"
+
+echo
+echo == Alice burn bob token, 50, success;
+echo
+
+eval dfx canister --no-wallet call token burn "'($BOB_PUBLIC_KEY, 50)'"
+
+echo
+echo == totalSupply
+echo
+
+eval dfx canister --no-wallet call token totalSupply
+
+
+echo
+echo == Alice mint to  dan token, 100, success;
+echo
+
+eval dfx canister --no-wallet call token mint "'($DAN_PUBLIC_KEY, 100)'"
+
+
+echo
+echo == Alice burn dan token, 1000, failed;
+echo
+
+HASH2=$(eval dfx canister --no-wallet call token burn "'($DAN_PUBLIC_KEY, 1000)'")
+echo $HASH2
+HASH2=\"${HASH2:9:64}\"
+echo $HASH2
+
+
+echo
+echo == totalSupply
+echo
+
+eval dfx canister --no-wallet call token totalSupply
+
+echo
+echo == Balances
+echo
+
+echo Alice = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($ALICE_PUBLIC_KEY)'" \
+)
+echo Bob = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($BOB_PUBLIC_KEY)'" \
+)
+echo Dan = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($DAN_PUBLIC_KEY)'" \
+)
+
+
 eval dfx canister --no-wallet call token allHistory
 
-eval dfx canister --no-wallet call token getHistoryByAccount "'($ALICE_PUBLIC_KEY)'";
-eval dfx canister --no-wallet call token getHistoryByAccount "'($BOB_PUBLIC_KEY)'";
-eval dfx canister --no-wallet call token getHistoryByAccount "'($DAN_PUBLIC_KEY)'";
+eval dfx canister --no-wallet call token getHistoryByAccount "'($ALICE_PUBLIC_KEY)'"
+eval dfx canister --no-wallet call token getHistoryByAccount "'($BOB_PUBLIC_KEY)'"
+eval dfx canister --no-wallet call token getHistoryByAccount "'($DAN_PUBLIC_KEY)'"
 
-eval dfx canister --no-wallet call token getHistoryByHash "'($HASH)'";
-
+eval dfx canister --no-wallet call token getHistoryByHash "'($HASH)'"
+eval dfx canister --no-wallet call token getHistoryByHash "'($HASH2)'"
 
 dfx stop

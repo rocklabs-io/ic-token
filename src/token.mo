@@ -149,7 +149,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 allowances.put(caller, temp);
             };
         };
-        let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #approve, #success, ops.size(), null,
+        let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #approve, #success, ops.size(), ?Utils.accountToText(caller),
                             ?Utils.accountToText(spend), value, null, null, Time.now());
         ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
         ops_map.put(hash_o, o);
