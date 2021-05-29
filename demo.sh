@@ -193,7 +193,7 @@ echo Dan allowance for Alice = $( \
 )
 
 echo
-echo == Dan grants Alice permission to spend 59 of his tokens instead of 50
+echo == Dan grants Alice permission to spend 59 of his tokens
 echo
 
 HASH=$(eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 59)'")

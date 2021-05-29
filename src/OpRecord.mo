@@ -9,13 +9,14 @@ import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
 
 module {
-    type Operation = {
+    public type Operation = {
         #mint;
         #burn;
         #transfer;
         #approve;
+        #init;
     };
-    type Status = {
+    public type Status = {
         #success;
         #failed;
     };
@@ -54,6 +55,7 @@ module {
             case (#burn) { bytes := Array.thaw(Array.append(Array.freeze(bytes), Array.make(1: Nat8))); };
             case (#transfer) { bytes := Array.thaw(Array.append(Array.freeze(bytes), Array.make(2: Nat8))); };
             case (#approve) { bytes := Array.thaw(Array.append(Array.freeze(bytes), Array.make(3: Nat8))); };
+            case (#init) { bytes := Array.thaw(Array.append(Array.freeze(bytes), Array.make(4: Nat8))); }
         };
         switch (o.status) {
             case (#success) { bytes := Array.thaw(Array.append(Array.freeze(bytes), Array.make(0: Nat8))); };

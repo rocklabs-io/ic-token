@@ -8,6 +8,7 @@ import OpRecord "./OpRecord";
 import SHA256 "./SHA256";
 import Array "mo:base/Array";
 import Time "mo:base/Time";
+import Option "mo:base/Option";
 
 /// Init token with `_name`, `_symbol`, `_decimals`, `_totalSupply`. 
 /// `_totalSupply` is the number of minimum units.
@@ -15,6 +16,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     type Account = Utils.AccountIdentifier;
     type OpRecord = OpRecord.OpRecord;
     type OpRecordIn = OpRecord.OpRecordIn;
+    type Operation = OpRecord.Operation;
+    type Status = OpRecord.Status;
 
     private stable var owner_ : Account = Utils.principalToAccount(msg.caller);
     private stable var name_ : Text = _name;
@@ -30,7 +33,36 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     // account to it's OpRecord
     private var ops_acc = HashMap.HashMap<Text, [var OpRecord]>(1, Text.equal, Text.hash);
 
+    private func putOpsAcc(who: Text, o: OpRecord) {
+        switch (ops_acc.get(who)) {
+            case (?op_acc) {
+                var op_new : [var OpRecord] = Array.thaw(Array.append(Array.freeze(op_acc), Array.make(o)));
+                ops_acc.put(who, op_new);
+            };
+            case (_) {
+                ops_acc.put(who, Array.thaw(Array.make(o)));
+            };            
+        }
+    };
+
+    private func addRecord(
+        caller: Text, op: Operation, status: Status, index: Nat, from: ?Text, to: ?Text, amount: Nat64,
+        fee: ?Nat64, memo: ?Nat64, timestamp: Time.Time
+    ) : Text {
+        let (o, hash_o) = OpRecord.recordMake(caller, op, status, index, from,
+                            to, amount, fee, memo, timestamp);
+        ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
+        ops_map.put(hash_o, o);
+        putOpsAcc(caller, o);
+        if ((not Option.isNull(from)) and (from != ?caller)) { putOpsAcc(Option.unwrap(from), o); };
+        if ((not Option.isNull(to)) and (to != ?caller) and (to != from) ) { putOpsAcc(Option.unwrap(to), o); };
+        return hash_o;
+    };
+
+    /// init 
     balances.put(owner_, totalSupply_);
+    ignore addRecord(Utils.accountToText(owner_), #init, #success, ops.size(), null, ?Utils.accountToText(owner_), 
+        totalSupply_, null, null, Time.now());
 
     /// Transfers `value` amount of tokens to Account `to`. 
     /// `value` is the number of minimum units.
@@ -55,24 +87,16 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                     assert(to_balance_new >= value);
                     balances.put(toer, to_balance_new);
 
-                    let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #transfer, #success, ops.size(), ?Utils.accountToText(caller),
-                                        ?Utils.accountToText(toer), value, null, null, Time.now());
-                    ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-                    ops_map.put(hash_o, o);
-                    putOpsAcc(caller, o);
-                    putOpsAcc(toer, o);
+                    let hash_o = addRecord(Utils.accountToText(caller), #transfer, #success, ops.size(), ?Utils.accountToText(caller),
+                                    ?Utils.accountToText(toer), value, null, null, Time.now());
                     return (true, hash_o);
                 };
             };
             case (_) {};
         };
-        let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #transfer, #failed, ops.size(), ?Utils.accountToText(caller),
-                            ?Utils.accountToText(toer), value, null, null, Time.now());
-        ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-        ops_map.put(hash_o, o);
-        putOpsAcc(caller, o);
-        putOpsAcc(toer, o);                  
-        return (false, hash_o);        
+        let hash_o = addRecord(Utils.accountToText(caller), #transfer, #failed, ops.size(), ?Utils.accountToText(caller),
+                        ?Utils.accountToText(toer), value, null, null, Time.now());                    
+        return (false, hash_o);
     };
 
     /// Transfers `value` amount of tokens from Account `from` to Account `to`.
@@ -106,13 +130,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                             allowance_from.put(caller, allowance_new);
                             allowances.put(fromer, allowance_from);
 
-                            let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #transfer, #success, ops.size(), ?Utils.accountToText(fromer),
-                                                ?Utils.accountToText(toer), value, null, null, Time.now());
-                            ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-                            ops_map.put(hash_o, o);
-                            putOpsAcc(caller, o);
-                            putOpsAcc(fromer, o);
-                            putOpsAcc(toer, o);                                                      
+                            let hash_o = addRecord(Utils.accountToText(caller), #transfer, #success, ops.size(), ?Utils.accountToText(fromer),
+                                            ?Utils.accountToText(toer), value, null, null, Time.now());                                                    
                             return (true, hash_o);
                         };
                     };
@@ -121,13 +140,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             };
             case (_) {};
         };
-        let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #transfer, #failed, ops.size(), ?Utils.accountToText(fromer),
-                            ?Utils.accountToText(toer), value, null, null, Time.now());
-        ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-        ops_map.put(hash_o, o);
-        putOpsAcc(caller, o);
-        putOpsAcc(fromer, o);
-        putOpsAcc(toer, o);                  
+        let hash_o = addRecord(Utils.accountToText(caller), #transfer, #failed, ops.size(), ?Utils.accountToText(fromer),
+                        ?Utils.accountToText(toer), value, null, null, Time.now());                 
         return (false, hash_o);
     };
 
@@ -149,12 +163,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 allowances.put(caller, temp);
             };
         };
-        let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #approve, #success, ops.size(), ?Utils.accountToText(caller),
-                            ?Utils.accountToText(spend), value, null, null, Time.now());
-        ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-        ops_map.put(hash_o, o);
-        putOpsAcc(caller, o);
-        putOpsAcc(spend, o);
+        let hash_o = addRecord(Utils.accountToText(caller), #approve, #success, ops.size(), ?Utils.accountToText(caller),
+                        ?Utils.accountToText(spend), value, null, null, Time.now());
         return (true, hash_o);
     };
 
@@ -173,12 +183,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 totalSupply_ += value;
             };
         };
-        let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #mint, #success, ops.size(), null,
+        let hash_o = addRecord(Utils.accountToText(caller), #mint, #success, ops.size(), null,
                         ?Utils.accountToText(toer), value, null, null, Time.now());
-        ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-        ops_map.put(hash_o, o);
-        putOpsAcc(caller, o);
-        putOpsAcc(toer, o);
         return (true, hash_o);
     };
 
@@ -193,23 +199,15 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                     balances.put(fromer, from_balance - value);
                     totalSupply_ -= value;
 
-                    let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #burn, #success, ops.size(), ?Utils.accountToText(fromer),
-                                        null, value, null, null, Time.now());
-                    ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-                    ops_map.put(hash_o, o);
-                    putOpsAcc(caller, o);
-                    putOpsAcc(fromer, o);                 
+                    let hash_o = addRecord(Utils.accountToText(caller), #burn, #success, ops.size(), ?Utils.accountToText(fromer),
+                                    null, value, null, null, Time.now());
                     return (true, hash_o);
                 };
             };
             case (_) {};
         };
-        let (o, hash_o) = OpRecord.recordMake(Utils.accountToText(caller), #burn, #failed, ops.size(), ?Utils.accountToText(fromer),
-                            null, value, null, null, Time.now());
-        ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-        ops_map.put(hash_o, o);
-        putOpsAcc(caller, o);
-        putOpsAcc(fromer, o);
+        let hash_o = addRecord(Utils.accountToText(caller), #burn, #failed, ops.size(), ?Utils.accountToText(fromer),
+                        null, value, null, null, Time.now());
         return (false, hash_o);        
     };
 
@@ -299,17 +297,5 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     /// Get the caller's Account.
     public shared(msg) func whoami() : async Text {
         return Utils.accountToText(Utils.principalToAccount(msg.caller));
-    };
-
-    private func putOpsAcc(who: Account, o: OpRecord) {
-        switch (ops_acc.get(Utils.accountToText(who))) {
-            case (?op_acc) {
-                var op_new : [var OpRecord] = Array.thaw(Array.append(Array.freeze(op_acc), Array.make(o)));
-                ops_acc.put(Utils.accountToText(who), op_new);
-            };
-            case (_) {
-                ops_acc.put(Utils.accountToText(who), Array.thaw(Array.make(o)));
-            };            
-        }
     };
 };
