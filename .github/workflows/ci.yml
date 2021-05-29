@@ -22,5 +22,3 @@ jobs:
       run: make check-strict
     - name: "test"
       run: make test
-    - name: "docs"
-      run: make docs

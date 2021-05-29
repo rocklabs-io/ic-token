@@ -1,9 +1,9 @@
 /// Motoko ERC20 Token
 ///
 /// Features: 
-/// 1. ERC20 standard interface, easy to understand and concise.   
-/// 2. It perfectly supports Account Identifier, which is the same as the one used by Ledger canister, 
-/// as `a3a6b204465c2f53c60ae18f5761acbd868b7705f888ccc2955eabbb5942d991`.
+/// 1. [ERC20 standard interface](https://eips.ethereum.org/EIPS/eip-20), easy to understand and concise.   
+/// 2. It supports [Account Identifier](https://github.com/dfinity/ic/blob/master/rs/rosetta-api/ledger_canister/src/account_identifier.rs#L24), which is the same as the one used by Ledger canister, 
+/// E.g: `a3a6b204465c2f53c60ae18f5761acbd868b7705f888ccc2955eabbb5942d991`.
 /// 3. It supports querying all history records, all history records of an account, history record of a transaction hash.
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";

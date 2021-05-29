@@ -1,3 +1,4 @@
+/// Utils module for Account Identifier and Principal
 import Hash "mo:base/Hash";
 import Array "mo:base/Array";
 import Principal "mo:base/Principal";
@@ -20,23 +21,29 @@ module {
     ];
     private let base : Nat8 = 0x10;
 
-    /// account identitier
+    /// Account Identitier type.   
     public type AccountIdentifier = {
         hash: [Nat8];
     };
 
+    /// Convert bytes array to hex string.       
+    /// E.g `[255,255]` to "ffff"
     public func encode(array : [Nat8]) : Text {
         Array.foldLeft<Nat8, Text>(array, "", func (accum, u8) {
             accum # nat8ToText(u8);
         });
     };
 
+    /// Convert a byte to hex string.
+    /// E.g `255` to "ff"
     func nat8ToText(u8: Nat8) : Text {
         let c1 = symbols[Nat8.toNat((u8/base))];
         let c2 = symbols[Nat8.toNat((u8%base))];
         return Char.toText(c1) # Char.toText(c2);
     };
 
+    /// Return the [motoko-base's Hash.Hash](https://github.com/dfinity/motoko-base/blob/master/src/Hash.mo#L9) of `AccountIdentifier`.  
+    /// To be used in HashMap.
     public func hash(a: AccountIdentifier) : Hash.Hash {
         var array : [Hash.Hash] = [];
         var temp : Hash.Hash = 0;
@@ -48,11 +55,12 @@ module {
         return Hash.hashNat8(array);
     };
 
+    /// Test if two account identifier are equal.
     public func equal(a: AccountIdentifier, b: AccountIdentifier) : Bool {
         Array.equal<Nat8>(a.hash, b.hash, Nat8.equal)
     };
 
-    /// Return the Account Identifier of the Principal.
+    /// Return the account identifier of the Principal.
     public func principalToAccount(p : Principal) : AccountIdentifier {
         let digest = SHA224.Digest();
         digest.write([10, 97, 99, 99, 111, 117, 110, 116, 45, 105, 100]:[Nat8]); // b"\x0Aaccount-id"
@@ -64,7 +72,7 @@ module {
         return {hash=hash_bytes;}: AccountIdentifier;
     };
 
-    /// Return the Text of the Account Identifier.
+    /// Return the Text of the account identifier.
     public func accountToText(p : AccountIdentifier) : Text {
         let crc = CRC32.crc32(p.hash);
         let aid_bytes = Array.append<Nat8>(crc, p.hash);
@@ -72,7 +80,7 @@ module {
         return encode(aid_bytes);
     };
 
-    /// Return the Account Identifier of the Text.
+    /// Return the account identifier of the Text.
     public func textToAccount(t : Text) : AccountIdentifier {
         var map = HashMap.HashMap<Nat, Nat8>(1, Nat.equal, Hash.hash);
         // '0': 48 -> 0; '9': 57 -> 9

@@ -1,3 +1,6 @@
+/// Operation Record module 
+///
+/// To store the update call history.
 import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Operation "mo:base/Option";
@@ -9,6 +12,7 @@ import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
 
 module {
+    /// Update call operations
     public type Operation = {
         #mint;
         #burn;
@@ -16,10 +20,12 @@ module {
         #approve;
         #init;
     };
+    /// Update call status
     public type Status = {
         #success;
         #failed;
     };
+    /// Update call record fields
     public type OpRecord = {
         caller: Text;
         op: Operation;
@@ -33,7 +39,7 @@ module {
         memo: ?Nat64;
         timestamp: Time.Time;
     };
-    // OpRecord without hash.
+    /// `OpRecord` without hash.
     public type OpRecordIn = {
         caller: Text;
         op: Operation;
@@ -47,6 +53,7 @@ module {
         timestamp: Time.Time;
     };
 
+    /// Serialize a `OpRecordIn` to `[Nat8]`
     public func bytes(o: OpRecordIn) : [Nat8] {
         var bytes : [var Nat8] = [var];
         bytes := Array.thaw(Array.append(Array.freeze(bytes), Utils.textToAccount(o.caller).hash));
@@ -90,6 +97,8 @@ module {
         return Array.freeze(bytes);
     };
 
+    /// Construct a `OpRecord` based on field data.    
+    /// Return the OpRecord and SHA256 hash.
     public func recordMake(
         caller: Text, op: Operation, status: Status, index: Nat, from: ?Text, to: ?Text, amount: Nat64,
         fee: ?Nat64, memo: ?Nat64, timestamp: Time.Time
