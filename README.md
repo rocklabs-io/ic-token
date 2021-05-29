@@ -19,5 +19,3 @@ https://github.com/dfinity/vessel
 * https://github.com/enzoh/motoko-sha
 * https://github.com/stephenandrews/motoko-crc
 * https://github.com/flyq/motoko-sha224
-* 
-
