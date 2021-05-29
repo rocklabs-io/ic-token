@@ -1,4 +1,10 @@
 /// Motoko ERC20 Token
+///
+/// Features: 
+/// 1. ERC20 standard interface, easy to understand and concise.   
+/// 2. It perfectly supports Account Identifier, which is the same as the one used by Ledger canister, 
+/// as `a3a6b204465c2f53c60ae18f5761acbd868b7705f888ccc2955eabbb5942d991`.
+/// 3. It supports querying all history records, all history records of an account, history record of a transaction hash.
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
 import Utils "./Utils";
@@ -59,13 +65,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return hash_o;
     };
 
-    /// init 
     balances.put(owner_, totalSupply_);
     ignore addRecord(Utils.accountToText(owner_), #init, #success, ops.size(), null, ?Utils.accountToText(owner_), 
         totalSupply_, null, null, Time.now());
 
-    /// Transfers `value` amount of tokens to Account `to`. 
-    /// `value` is the number of minimum units.
+    /// Transfers `value` amount of tokens to Account `to`. `value` is the number of minimum units.   
+    /// Return whether the result is successful and transaction hash.
     public shared(msg) func transfer(to: Text, value: Nat64) : async (Bool, Text) {
         let caller = Utils.principalToAccount(msg.caller);
         let toer = Utils.textToAccount(to);
@@ -99,8 +104,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return (false, hash_o);
     };
 
-    /// Transfers `value` amount of tokens from Account `from` to Account `to`.
-    /// `value` is the number of minimum units.    
+    /// Transfers `value` amount of tokens from Account `from` to Account `to`. `value` is the number of minimum units.     
+    /// Return whether the result is successful and transaction hash.
     public shared(msg) func transferFrom(from: Text, to: Text, value: Nat64) : async (Bool, Text) {
         let caller = Utils.principalToAccount(msg.caller);
         let toer = Utils.textToAccount(to);
@@ -148,7 +153,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     /// Allows `spender` to withdraw from your account multiple times, up to the `value` amount. 
     /// If this function is called again it overwrites the current allowance with value.
     /// `value` is the number of minimum units.    
-    /// the `value` of `approve` is has **nothing** to do with your `balance`
+    /// the `value` of `approve` is has **nothing** to do with your `balance`     
+    /// Return whether the result is successful and transaction hash.
     public shared(msg) func approve(spender: Text, value: Nat64) : async (Bool, Text) {
         let caller = Utils.principalToAccount(msg.caller);
         let spend = Utils.textToAccount(spender);
@@ -169,6 +175,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     /// Creates `value` tokens and assigns them to Account `to`, increasing the total supply.
+    /// Return whether the result is successful and transaction hash.
     public shared(msg) func mint(to: Text, value: Nat64): async (Bool, Text) {
         let caller = Utils.principalToAccount(msg.caller);
         let toer = Utils.textToAccount(to);
@@ -188,7 +195,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return (true, hash_o);
     };
 
-    /// Burn `value` tokens of Account `to`, decreasing the total supply.
+    /// Burn `value` tokens of Account `to`, decreasing the total supply.     
+    /// Return whether the result is successful and transaction hash.
     public shared(msg) func burn(from: Text, value: Nat64): async (Bool, Text) {
         let caller = Utils.principalToAccount(msg.caller);
         let fromer = Utils.textToAccount(from);
@@ -270,12 +278,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return Utils.accountToText(owner_);
     };
 
-    /// Get update call ops index by hash.
+    /// Get update call History index by hash.
     public query func getHistoryByHash(hash: Text) : async ?OpRecord {
         return ops_map.get(hash);
     };
 
-    /// Get update call ops by account.
+    /// Get update call history by account.
     public query func getHistoryByAccount(a: Text) : async ?[OpRecord] {
         let account = Utils.textToAccount(a);
         switch (ops_acc.get(Utils.accountToText(account))) {
@@ -289,7 +297,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         }
     };
 
-    /// Get all update call ops.
+    /// Get all update call history.
     public query func allHistory() : async [OpRecord] {
         return Array.freeze(ops);
     };
