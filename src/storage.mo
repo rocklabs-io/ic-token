@@ -77,4 +77,16 @@ shared(msg) actor class Storage(_owner: Principal) {
     public query func allHistory() : async [OpRecord] {
         return Array.freeze(ops);
     };
+
+    public query func tokenCanisterId() : async Principal {
+        return token_canister_id_;
+    };
+
+    public query func owner() : async Principal {
+        return owner_;
+    };
+
+    public query func txAmount() : async Nat {
+        return ops.size();
+    };
 };
