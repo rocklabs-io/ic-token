@@ -52,10 +52,37 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         timestamp = Time.now();
     };
 
-    private func addFee(_fee: Nat64) {
-        switch (balances.get(feeTo)) {
-            case (?balance) { balances.put(feeTo, balance + _fee); };
-            case (_) { balances.put(feeTo, _fee); };
+    private func _addFee(from: Principal, fee: Nat64) {
+        _transfer(from, feeTo, fee);
+    };
+
+    private func _transfer(from: Principal, to: Principal, value: Nat64) {
+        let from_balance = _balanceOf(from);
+        let from_balance_new : Nat64 = from_balance - value;
+        if (from_balance_new != 0) { balances.put(from, from_balance_new); }
+        else { balances.delete(from); };
+
+        let to_balance = _balanceOf(to);
+        let to_balance_new : Nat64 = to_balance + value;
+        if (to_balance_new != 0) { balances.put(to, to_balance_new); }
+    };
+
+    private func _balanceOf(who: Principal) : Nat64 {
+        switch (balances.get(who)) {
+            case (?balance) { return balance; };
+            case (_) { return 0; };
+        }
+    };
+
+    private func _allowance(owner: Principal, spender: Principal) : Nat64 {
+        switch(allowances.get(owner)) {
+            case (?allowance_owner) {
+                switch(allowance_owner.get(spender)) {
+                    case (?allowance) { return allowance; };
+                    case (_) { return 0; };
+                }
+            };
+            case (_) { return 0; };
         }
     };
 
@@ -90,108 +117,69 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     /// Transfers value amount of tokens to Principal to.
     public shared(msg) func transfer(to: Principal, value: Nat64) : async Bool {
-        switch (balances.get(msg.caller)) {
-            case (?caller_balance) {
-                if (caller_balance >= value + fee) {
-                    let from_balance_new : Nat64 = caller_balance - value - fee;
-                    if (from_balance_new != 0) { balances.put(msg.caller, from_balance_new); } 
-                    else { balances.delete(msg.caller); };                   
-                    let to_balance_new = switch (balances.get(to)) {
-                        case (?to_balance) { to_balance + value; };
-                        case (_) { value; };
-                    };
-                    if (to_balance_new != 0) { balances.put(to, to_balance_new); };
-                    addFee(fee);
-                    if (storageCanister != null) {
-                        ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
-                    };
-                    return true;
-                } else { throw Error.reject("You have tried to spend more than the balance of your account"); };
-            };
-            case (_) {
-                if (value == 0 and fee == 0) {
-                    if (storageCanister != null) {
-                        ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
-                    };
-                    return true;
-                } else {
-                    throw Error.reject("You tried to withdraw funds from empty account " # Principal.toText(msg.caller));
-                }
-            };
-        }
+        _addFee(msg.caller, fee);
+        _transfer(msg.caller, to, value);
+        if (storageCanister != null) {
+            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+        };
+        return true;
     };
 
     /// Transfers value amount of tokens from Principal from to Principal to.
     public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat64) : async Bool {
-        switch (balances.get(from), balances.get(msg.caller), allowances.get(from)) {
-            case (?from_balance, ?caller_balance, ?allowance_from) {
-                switch (allowance_from.get(msg.caller)) {
-                    case (?allowance) {
-                        if (from_balance >= value and allowance >= value and caller_balance >= fee) {
-                            if (from_balance - value != 0) { balances.put(from, from_balance - value); } 
-                            else { balances.delete(from); };
-                            
-                            if (caller_balance - fee != 0) { balances.put(msg.caller, caller_balance - fee); }
-                            else { balances.delete(msg.caller); };
-                            
-                            var to_balance_new = switch (balances.get(to)) {
-                                case (?to_balance) { to_balance + value; };
-                                case (_) { value; };
-                            };
-                            if (to_balance_new != 0) { balances.put(to, to_balance_new);};
-
-                            if (allowance - value != 0) { allowance_from.put(msg.caller, allowance - value); } 
-                            else { allowance_from.delete(msg.caller); };
-                            if (allowance_from.size() != 0) { allowances.put(from, allowance_from); } 
-                            else { allowances.delete(from); };
-
-                            addFee(fee);
-                            if (storageCanister != null) {
-                                ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?from, ?to, value, fee, Time.now());
-                            };
-                            return true;                         
-                        } else { 
-                            throw Error.reject("You have tried to spend more than allowed or allower's balance or caller can't pay fee"); 
-                        };
-                    };
-                    case (_) {
-                        if (value == 0) {
-                            if (caller_balance - fee != 0) { balances.put(msg.caller, caller_balance - fee); } 
-                            else { balances.delete(msg.caller); };
-
-                            addFee(fee);
-                            if (storageCanister != null) {
-                                ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?from, ?to, value, fee, Time.now());
-                            };
+        _addFee(msg.caller, fee);
+        let allowed : Nat64 = _allowance(from, msg.caller);
+        if (allowed >= value) {
+            _transfer(from, to, value);
+            let allowed_new : Nat64 = allowed - value;
+            if (allowed_new != 0) {
+                let allowance_from = Option.unwrap(allowances.get(from));
+                allowance_from.put(msg.caller, allowed_new);
+                allowances.put(from, allowance_from);
+            } else {
+                if (allowed != 0) {
+                    let allowance_from = Option.unwrap(allowances.get(from));
+                    allowance_from.delete(msg.caller);
+                    if (allowance_from.size() == 0) { allowances.delete(from); }
+                    else { allowances.put(from, allowance_from); };
+                };
+            };
+            if (storageCanister != null) {
+                ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+            };
+            return true;
                             return true;                     
-                        } else {
-                            throw Error.reject("You tried to withdraw non-zero funds from empty allowance");
-                        };
-                    };
-                }
-            };
-            case (_) {
-                throw Error.reject("You tried to withdraw funds from empty allowance or empty account or caller can't pay fee");
-            };
-        }
+            return true;
+        } else {
+            throw Error.reject("You have tried to spend more than allowed");
+        };
     };
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
     /// If this function is called again it overwrites the current allowance with value.
     public shared(msg) func approve(spender: Principal, value: Nat64) : async Bool {
+        _addFee(msg.caller, fee);
         switch(allowances.get(msg.caller)) {
-            case (?allowances_caller) {
-                allowances_caller.put(spender, value);
-                allowances.put(msg.caller, allowances_caller);
+            case (?allowance_caller) {
+                if (value == 0) {
+                    allowance_caller.delete(spender);
+                    if (allowance_caller.size() == 0) { allowances.delete(msg.caller); }
+                    else { allowances.put(msg.caller, allowance_caller); };
+                } else {
+                    allowance_caller.put(spender, value);
+                    allowances.put(msg.caller, allowance_caller);
+                };
                 if (storageCanister != null) {
                     ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
                 };
                 return true;  
             };
             case (_) {
-                var temp = HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
-                temp.put(spender, value);
-                allowances.put(msg.caller, temp);
+                if (value != 0) {
+                    var temp = HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
+                    temp.put(spender, value);
+                    allowances.put(msg.caller, temp);
+                };               
                 if (storageCanister != null) {
                     ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
                 };
@@ -245,22 +233,11 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     public query func balanceOf(who: Principal) : async Nat64 {
-        switch (balances.get(who)) {
-            case (?balance) { return balance; };
-            case (_) { return 0; };
-        }
+        return _balanceOf(who);
     };
 
     public query func allowance(owner: Principal, spender: Principal) : async Nat64 {
-        switch(allowances.get(owner)) {
-            case (?allowance_owner) {
-                switch(allowance_owner.get(spender)) {
-                    case (?allowance) { return allowance; };
-                    case (_) { return 0; };
-                }
-            };
-            case (_) { return 0; };
-        }
+        return _allowance(owner, spender);
     };
 
     public query func totalSupply() : async Nat64 {
@@ -293,6 +270,41 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     public query func getUserNumber() : async Nat {
         return balances.size();
+    };
+
+    public query func getAllowed() : async [(Principal, Principal, Nat64)] {
+        var size : Nat = 0;
+        for ((k, v) in allowances.entries()) {
+            size += v.size();
+        };
+        var res : [var (Principal, Principal, Nat64)] = Array.init<(Principal, Principal, Nat64)>(size,(owner_,owner_, 0));
+        size := 0;
+        for ((k, v) in allowances.entries()) {
+            for ((x, y) in v.entries()) {
+                res[size] := (k,x,y);
+                size += 1;
+            };
+        };
+        return Array.freeze(res);
+    };
+
+    public query func getAllowedNumber() : async Nat {
+        var size : Nat = 0;
+        for ((k, v) in allowances.entries()) {
+            size += v.size();
+        };
+        return size;   
+    };
+
+    public query func getSomeAllowedNumber(who : Principal) : async Nat {
+        switch (allowances.get(who)) {
+            case (?allowance_who) {
+                return allowance_who.size();
+            };
+            case (_) {
+                return 0;
+            };
+        }
     };
 
     // no sure which is best, below vs Array.append();
