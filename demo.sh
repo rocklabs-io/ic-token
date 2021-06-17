@@ -29,6 +29,27 @@ dfx build
 
 eval dfx canister install --argument="'(\"Test Token\", \"TT\", 3, 10000000, $ALICE_PUBLIC_KEY)'" token
 
+sudo dfx canister --no-wallet install storage  --argument '(principal "cubyu-o2jmf-lm6ef-kgjq4-jdzmw-wt7ks-74lly-mlsqa-zytod-obklg-dae")'
+Creating UI canister on the local network.
+The UI canister on the "local" network is "ryjl3-tyaaa-aaaaa-aaaba-cai"
+Installing code for canister storage, with canister_id rwlgt-iiaaa-aaaaa-aaaaa-cai
+
+dfx canister --no-wallet call storage setTokenCanisterId '(principal "rrkah-fqaaa-aaaaa-aaaaq-cai")'
+
+sudo dfx canister --no-wallet install token --argument '("Test Token","TST",8:nat64,100000000000:nat64,principal "cubyu-o2jmf-lm6ef-kgjq4-jdzmw-wt7ks-74lly-mlsqa-zytod-obklg-dae",principal "rwlgt-iiaaa-aaaaa-aaaaa-cai")'
+
+dfx canister --no-wallet call token storageGenesis
+
+dfx canister --no-wallet call storage allHistory
+
+dfx canister --no-wallet call token getAllAccounts
+
+dfx canister --no-wallet call token getMetadata
+
+
+dfx canister --no-wallet call token getUserNumber
+
+
 echo Alice id = $ALICE_PUBLIC_KEY
 echo Bob id = $BOB_PUBLIC_KEY
 echo Dan id = $DAN_PUBLIC_KEY
