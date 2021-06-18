@@ -148,8 +148,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
             };
             return true;
-                            return true;                     
-            return true;
         } else {
             throw Error.reject("You have tried to spend more than allowed");
         };
