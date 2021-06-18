@@ -4,6 +4,7 @@ import Array "mo:base/Array";
 import Option "mo:base/Option";
 import Time "mo:base/Time";
 import Types "./Types";
+import ExperimentalCycles "mo:base/ExperimentalCycles";
 
 shared(msg) actor class Storage(_owner: Principal) {
     type Operation = Types.Operation;
@@ -56,8 +57,8 @@ shared(msg) actor class Storage(_owner: Principal) {
     };
 
     /// Get History by index.
-    public query func getHistoryByIndex(index: Nat) : async ?OpRecord {
-        return ?ops[index];
+    public query func getHistoryByIndex(index: Nat) : async OpRecord {
+        return ops[index];
     };
 
     /// Get history by account.
@@ -88,5 +89,9 @@ shared(msg) actor class Storage(_owner: Principal) {
 
     public query func txAmount() : async Nat {
         return ops.size();
+    };
+
+    public query func getCycles() : async Nat {
+        return ExperimentalCycles.balance();
     };
 };

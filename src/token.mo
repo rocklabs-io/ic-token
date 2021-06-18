@@ -6,6 +6,7 @@ import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Error "mo:base/Error";
 import Option "mo:base/Option";
+import ExperimentalCycles "mo:base/ExperimentalCycles";
 
 shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _totalSupply: Nat64, _owner: Principal) {
     type Operation = Types.Operation;
@@ -13,9 +14,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     type StorageActor = actor {
         addRecord : (caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat64,
             fee: Nat64, timestamp: Time.Time) -> async Nat;
-        getHistoryByIndex : (index : Nat) -> async ?OpRecord;
-        getHistoryByAccount : (a : Principal) -> async ?[OpRecord];
-        allHistory : () -> async [OpRecord];
     };
     type Metadata = {
         name : Text;
@@ -36,6 +34,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat64 = _totalSupply;
     private stable var storageCanister : ?StorageActor = null;
+    private stable var genesisFlag : Bool = false;
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat64 = 0;
     private var balances =  HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
@@ -93,6 +92,13 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return true;
     };
 
+    public shared(msg) func newStorageCanister(owner: Principal) : async Bool {
+        assert(msg.caller == owner_ and storageCanister == null);
+        let storage = await Storage.Storage(owner);
+        storageCanister := ?storage;
+        return true;
+    };
+
     public shared(msg) func setFeeTo(to: Principal) : async Bool {
         assert(msg.caller == owner_);
         feeTo := to;
@@ -105,12 +111,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return true;
     };
 
-    /// owner should only call it ONCE
     public shared(msg) func storageGenesis() : async Nat {
-        assert(msg.caller == owner_);
+        assert(msg.caller == owner_ and genesisFlag == false);
         if (storageCanister != null) {
             let res = await Option.unwrap(storageCanister).addRecord(genesis.caller, genesis.op, genesis.from, genesis.to, 
                 genesis.amount, genesis.fee, genesis.timestamp);
+            genesisFlag := true;
             return res;
         } else { throw Error.reject("Storage Canister not set"); };
     };
@@ -157,77 +163,55 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     /// If this function is called again it overwrites the current allowance with value.
     public shared(msg) func approve(spender: Principal, value: Nat64) : async Bool {
         _addFee(msg.caller, fee);
-        switch(allowances.get(msg.caller)) {
-            case (?allowance_caller) {
-                if (value == 0) {
-                    allowance_caller.delete(spender);
-                    if (allowance_caller.size() == 0) { allowances.delete(msg.caller); }
-                    else { allowances.put(msg.caller, allowance_caller); };
-                } else {
-                    allowance_caller.put(spender, value);
-                    allowances.put(msg.caller, allowance_caller);
-                };
-                if (storageCanister != null) {
-                    ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
-                };
-                return true;  
-            };
-            case (_) {
-                if (value != 0) {
-                    var temp = HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
-                    temp.put(spender, value);
-                    allowances.put(msg.caller, temp);
-                };               
-                if (storageCanister != null) {
-                    ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
-                };
-                return true; 
-            };
-        }
+        if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
+            let allowance_caller = Option.unwrap(allowances.get(msg.caller));
+            allowance_caller.delete(spender);
+            if (allowance_caller.size() == 0) { allowances.delete(msg.caller); }
+            else { allowances.put(msg.caller, allowance_caller); };
+        } else if (value != 0 and Option.isNull(allowances.get(msg.caller))) {
+            var temp = HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
+            temp.put(spender, value);
+            allowances.put(msg.caller, temp);
+        } else if (value != 0 and Option.isSome(allowances.get(msg.caller))) {
+            let allowance_caller = Option.unwrap(allowances.get(msg.caller));
+            allowance_caller.put(spender, value);
+            allowances.put(msg.caller, allowance_caller);
+        };
+        if (storageCanister != null) {
+            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
+        };
+        return true; 
     };
 
     /// Creates value tokens and assigns them to Principal to, increasing the total supply.
     public shared(msg) func mint(to: Principal, value: Nat64): async Bool {
         assert(msg.caller == owner_);
-        switch (balances.get(to)) {
-            case (?to_balance) {
-                balances.put(to, to_balance + value);
-                totalSupply_ += value;
-                if (storageCanister != null) {
-                    ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #mint, null, ?to, value, fee, Time.now());
-                };
-                return true;
-            };
-            case (_) {
+        if (Option.isSome(balances.get(to))) {
+            balances.put(to, Option.unwrap(balances.get(to)) + value);
+            totalSupply_ += value;
+        } else {
+            if (value != 0) {
                 balances.put(to, value);
                 totalSupply_ += value;
-                if (storageCanister != null) {
-                    ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #mint, null, ?to, value, 0, Time.now());
-                };
-                return true;
             };
-        }
+        };
+        if (storageCanister != null) {
+            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #mint, null, ?to, value, 0, Time.now());
+        };
+        return true;
     };
 
     public shared(msg) func burn(from: Principal, value: Nat64): async Bool {
         assert(msg.caller == owner_ or msg.caller == from);
-        switch (balances.get(from)) {
-            case (?from_balance) {
-                if(from_balance >= value) {
-                    balances.put(from, from_balance - value);
-                    totalSupply_ -= value;
-                    if (storageCanister != null) {
-                        ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
-                    };
-                    return true;
-                } else {
-                    throw Error.reject("You have tried to burn more than the balance of from account");
-                }
-            };
-            case (_) {
-                throw Error.reject("You tried to burn from empty account " # Principal.toText(from));
-            };
-        }
+        if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
+        if (Option.isSome(balances.get(from))) {
+            balances.put(from, Option.unwrap(balances.get(from)) - value);
+            totalSupply_ -= value;
+        } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
+        if (storageCanister != null) {
+            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
+        };
+        return true;
     };
 
     public query func balanceOf(who: Principal) : async Nat64 {
@@ -270,12 +254,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return balances.size();
     };
 
-    public query func getAllowed() : async [(Principal, Principal, Nat64)] {
+    public query func getAllAllowed() : async [(Principal, Principal, Nat64)] {
         var size : Nat = 0;
         for ((k, v) in allowances.entries()) {
             size += v.size();
         };
-        var res : [var (Principal, Principal, Nat64)] = Array.init<(Principal, Principal, Nat64)>(size,(owner_,owner_, 0));
+        var res : [var (Principal, Principal, Nat64)] = Array.init<(Principal, Principal, Nat64)>(size, (owner_, owner_, 0));
         size := 0;
         for ((k, v) in allowances.entries()) {
             for ((x, y) in v.entries()) {
@@ -286,7 +270,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return Array.freeze(res);
     };
 
-    public query func getAllowedNumber() : async Nat {
+    public query func getAllAllowedNumber() : async Nat {
         var size : Nat = 0;
         for ((k, v) in allowances.entries()) {
             size += v.size();
@@ -294,15 +278,26 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return size;   
     };
 
+    public query func getSomeAllowed(who : Principal) : async [(Principal, Nat64)] {
+        var size : Nat = 0;
+        if (Option.isSome(allowances.get(who))) {
+            let allowance_who = Option.unwrap(allowances.get(who));
+            size := allowance_who.size();
+            var res : [var (Principal, Nat64)] = Array.init<(Principal, Nat64)>(size, (owner_, 0));
+            size := 0;
+            for ((k, v) in allowance_who.entries()) {
+                res[size] := (k, v);
+                size += 1;
+            };
+            return Array.freeze(res);
+        } else {
+            return [];
+        };
+    };
+
     public query func getSomeAllowedNumber(who : Principal) : async Nat {
-        switch (allowances.get(who)) {
-            case (?allowance_who) {
-                return allowance_who.size();
-            };
-            case (_) {
-                return 0;
-            };
-        }
+        if (Option.isSome(allowances.get(who))) { return Option.unwrap(allowances.get(who)).size(); } 
+        else { return 0; };
     };
 
     // no sure which is best, below vs Array.append();
@@ -329,5 +324,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             feeTo = feeTo;
             userNumber = balances.size();
         };
+    };
+
+    public query func getCycles() : async Nat {
+        return ExperimentalCycles.balance();
     };
 };
