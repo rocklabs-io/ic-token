@@ -1,8 +1,9 @@
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
 import Storage "./storage";
-import Types "./Types";
+import Types "./types";
 import Time "mo:base/Time";
+import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Error "mo:base/Error";
 import Option "mo:base/Option";
@@ -26,6 +27,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         fee : Nat64;
         feeTo : Principal;
         userNumber : Nat;
+        cycles : Nat;
     };
 
     private stable var owner_ : Principal = _owner;
@@ -37,7 +39,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     private stable var genesisFlag : Bool = false;
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat64 = 0;
-    private var balances =  HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
+    private stable var balanceEntries : [(Principal, Nat64)] = [];
+    private var balances : HashMap.HashMap<Principal, Nat64> = HashMap.fromIter(balanceEntries.vals(), 0, Principal.equal, Principal.hash);
+    // TODO: preserve allowances during upgrade
     private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat64>>(1, Principal.equal, Principal.hash);
     balances.put(owner_, totalSupply_);
     private stable let genesis : OpRecord = {
@@ -111,7 +115,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return true;
     };
 
-    public shared(msg) func storageGenesis() : async Nat {
+    public shared(msg) func addGenesisRecord() : async Nat {
         assert(msg.caller == owner_ and genesisFlag == false);
         if (storageCanister != null) {
             let res = await Option.unwrap(storageCanister).addRecord(genesis.caller, genesis.op, genesis.from, genesis.to, 
@@ -311,6 +315,10 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return Array.freeze(res);
     };
 
+    public query func getCycles() : async Nat {
+        return ExperimentalCycles.balance();
+    };
+
     public query func getMetadata() : async Metadata {
         return {
             name = name_;
@@ -323,10 +331,15 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             fee = fee;
             feeTo = feeTo;
             userNumber = balances.size();
+            cycles = ExperimentalCycles.balance();
         };
     };
 
-    public query func getCycles() : async Nat {
-        return ExperimentalCycles.balance();
+    system func preupgrade() {
+        balanceEntries := Iter.toArray(balances.entries());
     };
+
+    system func postupgrade() {
+        balanceEntries := [];
+    }
 };

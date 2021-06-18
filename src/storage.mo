@@ -3,7 +3,7 @@ import Principal "mo:base/Principal";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
 import Time "mo:base/Time";
-import Types "./Types";
+import Types "./types";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
 shared(msg) actor class Storage(_owner: Principal) {
