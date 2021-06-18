@@ -1,0 +1,23 @@
+{
+  "canisters": {
+	  "erc20": {
+		  "build": "cargo build --target wasm32-unknown-unknown --package erc20 --release",
+		  "candid": "/src/erc20/token.did",
+		  "wasm": "target/wasm32-unknown-unknown/release/erc20.wasm",
+		  "type": "custom"
+	  }
+  },
+  "defaults": {
+    "build": {
+      "packtool": ""
+    }
+  },
+  "dfx": "0.7.0-beta.6",
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral"
+    }
+  },
+  "version": 1
+}

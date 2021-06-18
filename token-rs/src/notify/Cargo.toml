@@ -1,0 +1,19 @@
+[package]
+name = "erc20-notify"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ic-cdk = "0.3"
+ic-cdk-macros = "0.3"
+lazy_static = "1.4.0"
+candid = "0.6.21"
+serde = "1.0"
+ic-types = {path = "../../../ic/rs/types/types"}
+dfn_core = {path = "../../../ic/rs/rust_canisters/dfn_core"}
+dfn_candid = {path = "../../../ic/rs/rust_canisters/dfn_candid"}
