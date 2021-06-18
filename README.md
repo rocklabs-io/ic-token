@@ -1,6 +1,6 @@
 ## Introduction
 
-Token standard is essential for the Internet Computer ecosystem, especially for the decentralized finance(DeFi) system, this repository contains code of token canister templates developed by the DFinance Team, developers can choose whichever implementation to issue their own tokens.
+Token standard is essential for the Internet Computer ecosystem, especially for the decentralized finance(DeFi) system, this repository contains code of several token canister templates, developers can choose whichever implementation to issue their own tokens.
 
 Token templates:
 
