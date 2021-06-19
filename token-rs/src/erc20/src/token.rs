@@ -1,3 +1,11 @@
+/**
+ * Module     : token.rs
+ * Copyright  : 2021 DFinance Team
+ * License    : Apache 2.0 with LLVM Exception
+ * Maintainer : DFinance Team <hello@dfinance.ai>
+ * Stability  : Experimental
+ */
+
 use ic_cdk::export::{Principal};
 use ic_cdk::storage;
 use ic_cdk::api;

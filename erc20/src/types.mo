@@ -1,3 +1,11 @@
+/**
+ * Module     : types.mo
+ * Copyright  : 2021 DFinance Team
+ * License    : Apache 2.0 with LLVM Exception
+ * Maintainer : DFinance Team <hello@dfinance.ai>
+ * Stability  : Experimental
+ */
+
 import Time "mo:base/Time";
 
 module {

@@ -1,3 +1,11 @@
+/**
+ * Module     : token.rs
+ * Copyright  : 2021 DFinance Team
+ * License    : Apache 2.0 with LLVM Exception
+ * Maintainer : DFinance Team <hello@dfinance.ai>
+ * Stability  : Experimental
+ */
+
 use dfn_core::{
     api::{call_bytes_with_cleanup, ic0::call_on_cleanup, print, Funds},
     CanisterId,

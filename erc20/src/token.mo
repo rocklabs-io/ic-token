@@ -1,3 +1,11 @@
+/**
+ * Module     : token.mo
+ * Copyright  : 2021 DFinance Team
+ * License    : Apache 2.0 with LLVM Exception
+ * Maintainer : DFinance Team <hello@dfinance.ai>
+ * Stability  : Experimental
+ */
+
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
 import Storage "./storage";
