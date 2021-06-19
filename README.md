@@ -34,9 +34,11 @@ dfx canister create --all
 Install code for token canister:
 
 ```
+dfx build
+
 dfx canister install token --argument="'(\"<NAME>\", \"<SYMBOL>\", <DECIMALS>, <TOTAL_SUPPLY>, <YOUR_PRINCIPAL_ID>)'"
 e.g.:
-dfx canister install token --argument="'(\"DFinance Coin\", \"DFC\", 8, 10000000000000000, principal 4qehi-lqyo6-afz4c-hwqwo-lubfi-4evgk-5vrn5-rldx2-lheha-xs7a4-gae)'"
+dfx canister install token --argument="(\"DFinance Coin\", \"DFC\", 8, 10000000000000000, principal \"4qehi-lqyo6-afz4c-hwqwo-lubfi-4evgk-5vrn5-rldx2-lheha-xs7a4-gae\")"
 ```
 
 Refer to `demo.sh` in the corresponding sub directory for more details.

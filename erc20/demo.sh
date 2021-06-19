@@ -183,7 +183,7 @@ echo Alices allowance for Dan = $( \
 )
 
 echo
-echo == Dan grants Bob permission to spend 100 of this tokens: Should fail, dan only has 99 tokens
+echo == Dan grants Bob permission to spend 100 of this tokens, success.
 echo
 
 HOME=$DAN_HOME
@@ -224,7 +224,7 @@ echo Dan allowance for Alice = $( \
 )
 
 echo
-echo == Dan grants Alice permission to spend 60 of this tokens: Should fail, bob can already spend 40 so there is only 59 left
+echo == Dan grants Alice permission to spend 60 of this tokens, success
 echo
 
 eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 60000)'"
