@@ -40,8 +40,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat64 = 0;
     private stable var balanceEntries : [(Principal, Nat64)] = [];
-    private var balances : HashMap.HashMap<Principal, Nat64> = HashMap.fromIter(balanceEntries.vals(), 0, Principal.equal, Principal.hash);
-    // TODO: preserve allowances during upgrade
+    private stable var allowanceEntries : [(Principal, [(Principal, Nat64)])] = [];
+    private var balances = HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
     private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat64>>(1, Principal.equal, Principal.hash);
     balances.put(owner_, totalSupply_);
     private stable let genesis : OpRecord = {
@@ -258,18 +258,13 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return balances.size();
     };
 
-    public query func getAllAllowed() : async [(Principal, Principal, Nat64)] {
-        var size : Nat = 0;
-        for ((k, v) in allowances.entries()) {
-            size += v.size();
-        };
-        var res : [var (Principal, Principal, Nat64)] = Array.init<(Principal, Principal, Nat64)>(size, (owner_, owner_, 0));
+    public query func getAllAllowed() : async [(Principal, [(Principal, Nat64)])] {
+        var size : Nat = allowances.size();
+        var res : [var (Principal, [(Principal, Nat64)])] = Array.init<(Principal, [(Principal, Nat64)])>(size, (owner_, []));
         size := 0;
         for ((k, v) in allowances.entries()) {
-            for ((x, y) in v.entries()) {
-                res[size] := (k,x,y);
-                size += 1;
-            };
+            res[size] := (k, Iter.toArray(v.entries()));
+            size += 1;
         };
         return Array.freeze(res);
     };
@@ -286,14 +281,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         var size : Nat = 0;
         if (Option.isSome(allowances.get(who))) {
             let allowance_who = Option.unwrap(allowances.get(who));
-            size := allowance_who.size();
-            var res : [var (Principal, Nat64)] = Array.init<(Principal, Nat64)>(size, (owner_, 0));
-            size := 0;
-            for ((k, v) in allowance_who.entries()) {
-                res[size] := (k, v);
-                size += 1;
-            };
-            return Array.freeze(res);
+            return Iter.toArray(allowance_who.entries());
         } else {
             return [];
         };
@@ -306,13 +294,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     // no sure which is best, below vs Array.append();
     public query func getAllAccounts() : async [(Principal, Nat64)] {
-        var res : [var (Principal, Nat64)] = Array.init<(Principal, Nat64)>(balances.size(),(owner_,0));
-        var i : Nat = 0;
-        for ((k, v) in balances.entries()) {
-            res[i] := (k, v);
-            i += 1;
-        };
-        return Array.freeze(res);
+        return Iter.toArray(balances.entries());
     };
 
     public query func getCycles() : async Nat {
@@ -337,9 +319,23 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     system func preupgrade() {
         balanceEntries := Iter.toArray(balances.entries());
+        var size : Nat = allowances.size();
+        var temp : [var (Principal, [(Principal, Nat64)])] = Array.init<(Principal, [(Principal, Nat64)])>(size, (owner_, []));
+        size := 0;
+        for ((k, v) in allowances.entries()) {
+            temp[size] := (k, Iter.toArray(v.entries()));
+            size += 1;
+        };
+        allowanceEntries := Array.freeze(temp);
     };
 
     system func postupgrade() {
+        balances := HashMap.fromIter<Principal, Nat64>(balanceEntries.vals(), 1, Principal.equal, Principal.hash);
         balanceEntries := [];
-    }
+        for ((k, v) in allowanceEntries.vals()) {
+            let allowed_temp = HashMap.fromIter<Principal, Nat64>(v.vals(), 1, Principal.equal, Principal.hash);
+            allowances.put(k, allowed_temp);
+        };
+        allowanceEntries := [];
+    };
 };
