@@ -13,7 +13,7 @@ import Types "./types";
 import Time "mo:base/Time";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
-import Error "mo:base/Error";
+// import Error "mo:base/Error";
 import Option "mo:base/Option";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
@@ -44,7 +44,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat64 = _totalSupply;
     private stable var storageCanister : ?StorageActor = null;
-    private stable var genesisFlag : Bool = false;
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat64 = 0;
     private stable var balanceEntries : [(Principal, Nat64)] = [];
@@ -124,13 +123,13 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     public shared(msg) func addGenesisRecord() : async Nat {
-        assert(msg.caller == owner_ and genesisFlag == false);
+        assert(msg.caller == owner_);
         if (storageCanister != null) {
             let res = await Option.unwrap(storageCanister).addRecord(genesis.caller, genesis.op, genesis.from, genesis.to, 
                 genesis.amount, genesis.fee, genesis.timestamp);
-            genesisFlag := true;
             return res;
-        } else { throw Error.reject("Storage Canister not set"); };
+        // } else { throw Error.reject("Storage Canister not set"); };
+        } else { assert(false); return 0; };
     };
 
     /// Transfers value amount of tokens to Principal to.
@@ -138,7 +137,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         _addFee(msg.caller, fee);
         _transfer(msg.caller, to, value);
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
         };
         return true;
     };
@@ -163,18 +162,16 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 };
             };
             if (storageCanister != null) {
-                ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+                ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
             };
             return true;
-        } else {
-            throw Error.reject("You have tried to spend more than allowed");
-        };
+        // } else { throw Error.reject("You have tried to spend more than allowed"); };
+        } else { assert(false); return false; };
     };
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
     /// If this function is called again it overwrites the current allowance with value.
     public shared(msg) func approve(spender: Principal, value: Nat64) : async Bool {
-        _addFee(msg.caller, fee);
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
             let allowance_caller = Option.unwrap(allowances.get(msg.caller));
             allowance_caller.delete(spender);
@@ -190,7 +187,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             allowances.put(msg.caller, allowance_caller);
         };
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
         };
         return true; 
     };
@@ -208,20 +205,22 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             };
         };
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #mint, null, ?to, value, 0, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #mint, null, ?to, value, 0, Time.now());
         };
         return true;
     };
 
     public shared(msg) func burn(from: Principal, value: Nat64): async Bool {
         assert(msg.caller == owner_ or msg.caller == from);
-        if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
+        // if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
+        if (value < fee) { assert(false); };
         if (Option.isSome(balances.get(from))) {
             balances.put(from, Option.unwrap(balances.get(from)) - value);
             totalSupply_ -= value;
-        } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
+        // } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
+        } else { assert(false); };
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
         };
         return true;
     };
