@@ -26,7 +26,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         switch (balances.get(msg.caller)) {
             case (?from_balance) {
                 if (from_balance >= value) {
-                    var from_balance_new = from_balance - value;
+                    var from_balance_new: Nat = from_balance - value;
                     assert(from_balance_new <= from_balance);
                     balances.put(msg.caller, from_balance_new);
 
@@ -58,7 +58,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                 switch (allowance_from.get(msg.caller)) {
                     case (?allowance) {
                         if (from_balance >= value and allowance >= value) {
-                            var from_balance_new = from_balance - value;
+                            var from_balance_new: Nat = from_balance - value;
                             assert(from_balance_new <= from_balance);
                             balances.put(from, from_balance_new);
 
@@ -73,7 +73,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                             assert(to_balance_new >= value);
                             balances.put(to, to_balance_new);
 
-                            var allowance_new = allowance - value;
+                            var allowance_new: Nat = allowance - value;
                             assert(allowance_new <= allowance);
                             allowance_from.put(msg.caller, allowance_new);
                             allowances.put(from, allowance_from);

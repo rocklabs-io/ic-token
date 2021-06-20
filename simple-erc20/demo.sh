@@ -167,7 +167,7 @@ echo Alices allowance for Dan = $( \
 )
 
 echo
-echo == Dan grants Bob permission to spend 100 of this tokens: Should fail, dan only has 99 tokens
+echo == Dan grants Bob permission to spend 100 of this tokens
 echo
 
 HOME=$DAN_HOME
