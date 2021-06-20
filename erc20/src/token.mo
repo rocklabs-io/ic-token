@@ -13,7 +13,7 @@ import Types "./types";
 import Time "mo:base/Time";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
-import Error "mo:base/Error";
+// import Error "mo:base/Error";
 import Option "mo:base/Option";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
@@ -44,7 +44,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat64 = _totalSupply;
     private stable var storageCanister : ?StorageActor = null;
-    private stable var genesisFlag : Bool = false;
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat64 = 0;
     private stable var balanceEntries : [(Principal, Nat64)] = [];
@@ -124,11 +123,10 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     public shared(msg) func addGenesisRecord() : async Nat {
-        assert(msg.caller == owner_ and genesisFlag == false);
+        assert(msg.caller == owner_);
         if (storageCanister != null) {
             let res = await Option.unwrap(storageCanister).addRecord(genesis.caller, genesis.op, genesis.from, genesis.to, 
                 genesis.amount, genesis.fee, genesis.timestamp);
-            genesisFlag := true;
             return res;
         // } else { throw Error.reject("Storage Canister not set"); };
         } else { assert(false); return 0; };
