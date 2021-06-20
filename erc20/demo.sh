@@ -42,35 +42,26 @@ STOREID="principal \"$STOREID\""
 echo Token id: $TOKENID
 echo Store id: $STOREID
 
+echo
+echo == Install token and storage canister
+echo
+
 HOME=$ALICE_HOME
 eval dfx canister --no-wallet install token --argument="'(\"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'"
 eval dfx canister --no-wallet install storage --argument="'($ALICE_PUBLIC_KEY)'"
+
+echo
+echo == Initial setting for token and storage canister
+echo
 
 eval dfx canister --no-wallet call token setStorageCanisterId "'(opt $STOREID)'"
 eval dfx canister --no-wallet call storage setTokenCanisterId "'($TOKENID)'"
 eval dfx canister --no-wallet call token setFeeTo "'($FEE_PUBLIC_KEY)'"
 eval dfx canister --no-wallet call token setFee "'(100)'"
-eval dfx canister --no-wallet call token storageGenesis
+eval dfx canister --no-wallet call token addGenesisRecord
 
 echo
-echo == Initial token balances for Alice and Bob.
-echo
-
-echo Alice = $( \
-    eval dfx canister --no-wallet call token balanceOf "'($ALICE_PUBLIC_KEY)'" \
-)
-echo Bob = $( \
-    eval dfx canister --no-wallet call token balanceOf "'($BOB_PUBLIC_KEY)'" \
-)
-
-echo
-echo == Transfer 42 tokens from Alice to Bob. 
-echo
-
-eval dfx canister --no-wallet call token transfer "'($BOB_PUBLIC_KEY, 42000)'"
-
-echo
-echo == Final token balances for Alice and Bob.
+echo == Initial token balances for Alice and Bob, Dan, FEETO
 echo
 
 echo Alice = $( \
@@ -79,12 +70,74 @@ echo Alice = $( \
 echo Bob = $( \
     eval dfx canister --no-wallet call token balanceOf "'($BOB_PUBLIC_KEY)'" \
 )
+echo Dan = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($DAN_PUBLIC_KEY)'" \
+)
+echo FeeTo = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($FEE_PUBLIC_KEY)'" \
+)
 
 echo
-echo == Alice grants Dan permission to spend 50 of her tokens
+echo == Transfer 0 tokens from Alice to Bob, should success.
 echo
 
-eval dfx canister --no-wallet call token approve "'($DAN_PUBLIC_KEY, 50000)'"
+eval dfx canister --no-wallet call token transfer "'($BOB_PUBLIC_KEY, 0)'"
+
+echo
+echo == Transfer 0 tokens from Alice to Alice, should success.
+echo
+
+eval dfx canister --no-wallet call token transfer "'($ALICE_PUBLIC_KEY, 0)'"
+
+echo
+echo == Transfer 100 tokens from Alice to Alice, should success.
+echo
+
+eval dfx canister --no-wallet call token transfer "'($ALICE_PUBLIC_KEY, 100_000)'"
+
+echo
+echo == Transfer 2000 tokens from Alice to Alice, should failed, as no enough balance.
+echo
+
+eval dfx canister --no-wallet call token transfer "'($ALICE_PUBLIC_KEY, 2_000_000)'"
+
+echo
+echo == Transfer 0 tokens from Bob to Bob, should failed, as no enough balance for fee.
+echo
+
+HOME=$BOB_HOME
+eval dfx canister --no-wallet call token transfer "'($BOB_PUBLIC_KEY, 0)'"
+
+echo
+echo == Transfer 42 tokens from Alice to Bob, should success.
+echo
+
+HOME=$ALICE_HOME
+eval dfx canister --no-wallet call token transfer "'($BOB_PUBLIC_KEY, 42_000)'"
+
+
+echo
+echo == token balances for Alice, Bob, Dan and FeeTo.
+echo
+
+echo Alice = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($ALICE_PUBLIC_KEY)'" \
+)
+echo Bob = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($BOB_PUBLIC_KEY)'" \
+)
+echo Dan = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($DAN_PUBLIC_KEY)'" \
+)
+echo FeeTo = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($FEE_PUBLIC_KEY)'" \
+)
+
+echo
+echo == Alice grants Dan permission to spend 50 of her tokens, should success.
+echo
+
+eval dfx canister --no-wallet call token approve "'($DAN_PUBLIC_KEY, 50_000)'"
 
 echo
 echo == Alices allowances 
@@ -98,14 +151,14 @@ echo Alices allowance for Bob = $( \
 )
 
 echo
-echo == Dan transfers 40 tokens from Alice to Bob
+echo == Dan transfers 40 tokens from Alice to Bob, should failed, as Dan have no balance for Fee.
 echo
 
 HOME=$DAN_HOME
-eval dfx canister --no-wallet call token transferFrom "'($ALICE_PUBLIC_KEY, $BOB_PUBLIC_KEY, 40000)'"
+eval dfx canister --no-wallet call token transferFrom "'($ALICE_PUBLIC_KEY, $BOB_PUBLIC_KEY, 40_000)'"
 
 echo
-echo == Token balance for Bob and Alice
+echo == Token balance for Bob and Alice, no changed
 echo
 
 echo Alice = $( \
@@ -116,6 +169,37 @@ echo Bob = $( \
 )
 
 echo
+echo == Alice transfer 1 tokens To Dan
+echo
+
+HOME=$ALICE_HOME
+eval dfx canister --no-wallet call token transfer "'($DAN_PUBLIC_KEY, 1_000)'"
+
+echo
+echo == Dan transfers 40 tokens from Alice to Bob, should success, as Dan have enough balance for Fee.
+echo
+
+HOME=$DAN_HOME
+eval dfx canister --no-wallet call token transferFrom "'($ALICE_PUBLIC_KEY, $BOB_PUBLIC_KEY, 40_000)'"
+
+echo
+echo == Token balance for Alice and Bob and Dan
+echo
+
+echo Alice = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($ALICE_PUBLIC_KEY)'" \
+)
+echo Bob = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($BOB_PUBLIC_KEY)'" \
+)
+echo Dan = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($DAN_PUBLIC_KEY)'" \
+)
+echo Fee = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($FEE_PUBLIC_KEY)'" \
+)
+
+echo
 echo == Alice allowances
 echo
 
@@ -126,18 +210,33 @@ echo Alices allowance for Dan = $( \
     eval dfx canister --no-wallet call token allowance "'($ALICE_PUBLIC_KEY, $DAN_PUBLIC_KEY)'" \
 )
 
+
+
 echo
-echo == Dan tries to transfer 20 tokens more from Alice to Bob: Should fail, remaining allowance = 10
+echo == Dan tries to transfer 20 tokens more from Alice to Bob: should fail, as remaining allowance = 10
 echo
 
-eval dfx canister --no-wallet call token transferFrom "'($ALICE_PUBLIC_KEY, $BOB_PUBLIC_KEY, 20000)'"
+eval dfx canister --no-wallet call token transferFrom "'($ALICE_PUBLIC_KEY, $BOB_PUBLIC_KEY, 20_000)'"
+
+echo Alice = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($ALICE_PUBLIC_KEY)'" \
+)
+echo Bob = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($BOB_PUBLIC_KEY)'" \
+)
+echo Dan = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($DAN_PUBLIC_KEY)'" \
+)
+echo Fee = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($FEE_PUBLIC_KEY)'" \
+)
 
 echo
 echo == Alice grants Bob permission to spend 100 of her tokens
 echo
 
 HOME=$ALICE_HOME
-eval dfx canister --no-wallet call token approve "'($BOB_PUBLIC_KEY, 100000)'"
+eval dfx canister --no-wallet call token approve "'($BOB_PUBLIC_KEY, 100_000)'"
 
 echo
 echo == Alice allowances
@@ -148,6 +247,20 @@ echo Alices allowance for Bob = $( \
 )
 echo Alices allowance for Dan = $( \
     eval dfx canister --no-wallet call token allowance "'($ALICE_PUBLIC_KEY, $DAN_PUBLIC_KEY)'" \
+)
+
+
+echo Alice = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($ALICE_PUBLIC_KEY)'" \
+)
+echo Bob = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($BOB_PUBLIC_KEY)'" \
+)
+echo Dan = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($DAN_PUBLIC_KEY)'" \
+)
+echo Fee = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($FEE_PUBLIC_KEY)'" \
 )
 
 echo
@@ -155,7 +268,7 @@ echo == Bob transfers 99 tokens from Alice to Dan
 echo
 
 HOME=$BOB_HOME
-eval dfx canister --no-wallet call token transferFrom "'($ALICE_PUBLIC_KEY, $DAN_PUBLIC_KEY, 99000)'"
+eval dfx canister --no-wallet call token transferFrom "'($ALICE_PUBLIC_KEY, $DAN_PUBLIC_KEY, 99_000)'"
 
 echo
 echo == Balances
@@ -170,6 +283,9 @@ echo Bob = $( \
 echo Dan = $( \
     eval dfx canister --no-wallet call token balanceOf "'($DAN_PUBLIC_KEY)'" \
 )
+echo Fee = $( \
+    eval dfx canister --no-wallet call token balanceOf "'($FEE_PUBLIC_KEY)'" \
+)
 
 echo
 echo == Alice allowances
@@ -183,7 +299,7 @@ echo Alices allowance for Dan = $( \
 )
 
 echo
-echo == Dan grants Bob permission to spend 100 of this tokens, success.
+echo == Dan grants Bob permission to spend 100 of this tokens, should success.
 echo
 
 HOME=$DAN_HOME
@@ -224,38 +340,45 @@ echo Dan allowance for Alice = $( \
 )
 
 echo
-echo == Dan grants Alice permission to spend 60 of this tokens, success
+echo == all History
 echo
-
-eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 60000)'"
-
-echo
-echo == Dan allowances
-echo
-
-echo Dan allowance for Bob = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $BOB_PUBLIC_KEY)'" \
-)
-echo Dan allowance for Alice = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $ALICE_PUBLIC_KEY)'" \
-)
+eval dfx canister --no-wallet call storage allHistory
 
 echo
-echo == Dan grants Alice permission to spend 59 of his tokens 
+echo == all holding account
 echo
-
-eval dfx canister --no-wallet call token approve "'($ALICE_PUBLIC_KEY, 59000)'"
+eval dfx canister --no-wallet  call token getAllAccounts
 
 echo
-echo == Dan allowances
+echo == Metadata
 echo
+dfx canister --no-wallet call token getMetadata
 
-echo Dan allowance for Bob = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $BOB_PUBLIC_KEY)'" \
-)
-echo Dan allowance for Alice = $( \
-    eval dfx canister --no-wallet call token allowance "'($DAN_PUBLIC_KEY, $ALICE_PUBLIC_KEY)'" \
-)
+echo
+echo == userNumber
+echo
+dfx canister --no-wallet  call token getUserNumber
+
+echo
+echo == getCycles
+echo
+dfx canister --no-wallet  call token getCycles
+
+echo
+echo == getAllAllowedNumber
+echo
+dfx canister --no-wallet  call token getAllAllowedNumber
+
+echo
+echo == getAllAllowed
+echo
+dfx canister --no-wallet  call token getAllAllowed
+
+echo
+echo == Upgrade token
+echo
+HOME=$ALICE_HOME
+eval dfx canister --no-wallet install token --argument="'(\"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'" -m=upgrade
 
 echo
 echo == all History
@@ -276,5 +399,20 @@ echo
 echo == userNumber
 echo
 dfx canister --no-wallet  call token getUserNumber
+
+echo
+echo == getCycles
+echo
+dfx canister --no-wallet  call token getCycles
+
+echo
+echo == getAllAllowedNumber
+echo
+dfx canister --no-wallet  call token getAllAllowedNumber
+
+echo
+echo == getAllAllowed
+echo
+dfx canister --no-wallet  call token getAllAllowed
 
 dfx stop

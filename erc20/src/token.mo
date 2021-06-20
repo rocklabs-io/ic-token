@@ -138,7 +138,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         _addFee(msg.caller, fee);
         _transfer(msg.caller, to, value);
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
         };
         return true;
     };
@@ -163,7 +163,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 };
             };
             if (storageCanister != null) {
-                ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+                ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
             };
             return true;
         } else {
@@ -190,7 +190,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             allowances.put(msg.caller, allowance_caller);
         };
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
         };
         return true; 
     };
@@ -208,7 +208,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             };
         };
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #mint, null, ?to, value, 0, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #mint, null, ?to, value, 0, Time.now());
         };
         return true;
     };
@@ -221,7 +221,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
             totalSupply_ -= value;
         } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
         if (storageCanister != null) {
-            ignore await Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
         };
         return true;
     };
