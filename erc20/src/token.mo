@@ -130,7 +130,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 genesis.amount, genesis.fee, genesis.timestamp);
             genesisFlag := true;
             return res;
-        } else { throw Error.reject("Storage Canister not set"); };
+        // } else { throw Error.reject("Storage Canister not set"); };
+        } else { assert(false); return 0; };
     };
 
     /// Transfers value amount of tokens to Principal to.
@@ -166,15 +167,13 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
                 ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
             };
             return true;
-        } else {
-            throw Error.reject("You have tried to spend more than allowed");
-        };
+        // } else { throw Error.reject("You have tried to spend more than allowed"); };
+        } else { assert(false); return false; };
     };
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
     /// If this function is called again it overwrites the current allowance with value.
     public shared(msg) func approve(spender: Principal, value: Nat64) : async Bool {
-        _addFee(msg.caller, fee);
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
             let allowance_caller = Option.unwrap(allowances.get(msg.caller));
             allowance_caller.delete(spender);
@@ -215,11 +214,13 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     public shared(msg) func burn(from: Principal, value: Nat64): async Bool {
         assert(msg.caller == owner_ or msg.caller == from);
-        if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
+        // if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
+        if (value < fee) { assert(false); };
         if (Option.isSome(balances.get(from))) {
             balances.put(from, Option.unwrap(balances.get(from)) - value);
             totalSupply_ -= value;
-        } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
+        // } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
+        } else { assert(false); };
         if (storageCanister != null) {
             ignore Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
         };
