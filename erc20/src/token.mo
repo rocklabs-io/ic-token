@@ -134,8 +134,10 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     /// Transfers value amount of tokens to Principal to.
     public shared(msg) func transfer(to: Principal, value: Nat64) : async Bool {
+        if (value < fee) { return false; };
+        if (_balanceOf(msg.caller) < value) { return false; };
         _addFee(msg.caller, fee);
-        _transfer(msg.caller, to, value);
+        _transfer(msg.caller, to, value - fee);
         if (storageCanister != null) {
             ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
         };
@@ -144,29 +146,30 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     /// Transfers value amount of tokens from Principal from to Principal to.
     public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat64) : async Bool {
-        _addFee(msg.caller, fee);
+        if (value < fee) { return false; };
+        if (_balanceOf(from) < value) { return false; };
         let allowed : Nat64 = _allowance(from, msg.caller);
-        if (allowed >= value) {
-            _transfer(from, to, value);
-            let allowed_new : Nat64 = allowed - value;
-            if (allowed_new != 0) {
+        if (allowed < value) { return false; };
+        _addFee(from, fee);
+        _transfer(from, to, value - fee);
+        let allowed_new : Nat64 = allowed - value;
+        if (allowed_new != 0) {
+            let allowance_from = Option.unwrap(allowances.get(from));
+            allowance_from.put(msg.caller, allowed_new);
+            allowances.put(from, allowance_from);
+        } else {
+            if (allowed != 0) {
                 let allowance_from = Option.unwrap(allowances.get(from));
-                allowance_from.put(msg.caller, allowed_new);
-                allowances.put(from, allowance_from);
-            } else {
-                if (allowed != 0) {
-                    let allowance_from = Option.unwrap(allowances.get(from));
-                    allowance_from.delete(msg.caller);
-                    if (allowance_from.size() == 0) { allowances.delete(from); }
-                    else { allowances.put(from, allowance_from); };
-                };
+                allowance_from.delete(msg.caller);
+                if (allowance_from.size() == 0) { allowances.delete(from); }
+                else { allowances.put(from, allowance_from); };
             };
-            if (storageCanister != null) {
-                ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
-            };
-            return true;
+        };
+        if (storageCanister != null) {
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+        };
+        return true;
         // } else { throw Error.reject("You have tried to spend more than allowed"); };
-        } else { assert(false); return false; };
     };
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
@@ -213,12 +216,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     public shared(msg) func burn(from: Principal, value: Nat64): async Bool {
         assert(msg.caller == owner_ or msg.caller == from);
         // if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
-        if (value < fee) { assert(false); };
+        if (value < fee) { return false; };
         if (Option.isSome(balances.get(from))) {
             balances.put(from, Option.unwrap(balances.get(from)) - value);
             totalSupply_ -= value;
         // } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
-        } else { assert(false); };
+        } else { return false; };
         if (storageCanister != null) {
             ignore Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
         };
