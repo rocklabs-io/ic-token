@@ -155,7 +155,7 @@ eval dfx canister --no-wallet call token transferFrom "'($BOB_PUBLIC_KEY, $ALICE
 
 
 echo
-echo == Transfer 41.9 tokens from Bob to Alice, should success.
+echo == Transfer 40.9 tokens from Bob to Alice, should success.
 echo
 
 HOME=$BOB_HOME
