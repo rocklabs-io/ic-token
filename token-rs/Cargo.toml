@@ -1,6 +1,5 @@
 [workspace]
 members = [
 	"src/erc20",
-	"src/erc20-with-fee",
 	"src/notify",
 ]

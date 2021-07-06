@@ -5,17 +5,13 @@
  * Maintainer : DFinance Team <hello@dfinance.ai>
  * Stability  : Experimental
  */
-
-use dfn_core::{
-    api::{call_bytes_with_cleanup, ic0::call_on_cleanup, print, Funds},
-    CanisterId,
-};
 use ic_cdk::api;
 use ic_cdk::export::Principal;
 use ic_cdk::storage;
 use ic_cdk_macros::*;
-use ic_types::PrincipalId;
 use std::{collections::HashMap, convert::TryFrom};
+
+use crate::is_authenticating;
 
 use super::TransactionNotification;
 
@@ -41,47 +37,59 @@ fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
 }
 
 #[update(name = "transfer")]
-fn transfer(to: Principal, value: u64) -> bool {
+pub async fn transfer(to: Principal, value: u64) -> bool {
     let from = api::caller();
     if from == to {
         return false;
     }
-    let to = PrincipalId::from(to.as_slice());
-    //TODO: determine whether "to" is a canister 
-    let to = CanisterId::try_from(to).unwrap();
+    //TODO: determine whether "to" is a canister
     let from_balance = balance_of(from);
     api::print(from_balance.to_string());
     if from_balance < value {
         false
     } else {
-        // TODO: notify receiver
-        let transaction_notification_args = TransactionNotification {
-            from: from,
-            to: to,
-            amount,
-        };
+        let to_balance = balance_of(to);
+        let balances = storage::get_mut::<Balances>();
+        balances.insert(from, from_balance - value);
+        balances.insert(to, to_balance + value);
 
-        let bytes = candid::encode_one(transaction_notification_args)
-            .expect("transaction notification serialization failed");
-        let response =
-            call_bytes_with_cleanup(to, "on_receive_transfer", &bytes[..], Funds::zero()).await;
+        if !is_authenticating(&to) {
+            let res: Result<(bool,), _> = api::call::call(to, "wants_notify", ()).await;
+            match res {
+                Ok(ok) => {
+                    if ok.0 {
+                        let args = TransactionNotification {
+                            from,
+                            to,
+                            amount: value,
+                        };
 
-        match response {
-            Ok(bs) => {
-                let to_balance = balance_of(to);
-                let balances = storage::get_mut::<Balances>();
-                balances.insert(from, from_balance - value);
-                balances.insert(to, to_balance + value);
-                return true;
-            }
-            Err((_code, err)) => {
-                print(err);
-                return false;
+                        let response: Result<(String,), _> =
+                            api::call::call(to, "on_receive_transfer", (args,)).await;
+
+                        match response {
+                            Ok(bs) => {
+                                api::print(String::from("response:") + &bs.0);
+                                return true;
+                            }
+                            Err((_code, err)) => {
+                                api::print(err);
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                }
+                //没有这个方法，或者不是Canister？
+                Err((_code, err)) => {
+                    api::print(err);
+                    return true;
+                }
             }
         }
+        return true;
     }
 }
-
 #[update(name = "mint")]
 fn mint(to: Principal, value: u64) -> bool {
     if api::caller() != to {
