@@ -80,7 +80,6 @@ pub async fn transfer(to: Principal, value: u64) -> bool {
                     }
                     return true;
                 }
-                //没有这个方法，或者不是Canister？
                 Err((_code, err)) => {
                     api::print(err);
                     return true;
