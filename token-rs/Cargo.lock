@@ -240,10 +240,12 @@ dependencies = [
 name = "erc20"
 version = "0.1.0"
 dependencies = [
+ "candid",
  "ic-cdk",
  "ic-cdk-macros",
  "ic-types",
  "lazy_static",
+ "serde",
 ]
 
 [[package]]

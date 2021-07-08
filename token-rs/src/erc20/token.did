@@ -1,0 +1,15 @@
+service : (text, text, nat64, nat64) -> {
+  allowance : (principal, principal) -> (nat64) query;
+  approve : (principal, nat64) -> (bool);
+  balanceOf : (principal) -> (nat64) query;
+  burn : (principal, nat64) -> (bool);
+  controller : () -> (principal) query;
+  decimals : () -> (nat64) query;
+  mint : (principal, nat64) -> (bool);
+  name : () -> (text) query;
+  owner : () -> (principal) query;
+  symbol : () -> (text) query;
+  totalSupply : () -> (nat64) query;
+  transfer : (principal, nat64) -> (bool);
+  transferFrom : (principal, principal, nat64) -> (bool);
+}

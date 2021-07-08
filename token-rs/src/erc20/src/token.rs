@@ -6,11 +6,12 @@
  * Stability  : Experimental
  */
 
-use ic_cdk::export::{Principal};
-use ic_cdk::storage;
-use ic_cdk::api;
+use ic_cdk::{export::Principal, storage, api};
 use ic_cdk_macros::*;
 use std::collections::HashMap;
+use candid::{candid_method, CandidType};
+use std::string::String;
+use serde::{Serialize, Deserialize};
 
 static mut NAME: &str = "";
 static mut SYMBOL: &str = "";
@@ -21,7 +22,19 @@ static mut TOTALSUPPLY: u64 = 0;
 type Balances = HashMap<Principal, u64>;
 type Allowances = HashMap<Principal, HashMap<Principal, u64>>;
 
+#[derive(Deserialize, CandidType)]
+struct UpgradePayload {
+    name: String,
+    symbol: String,
+    decimals: u64,
+    total_supply: u64,
+    owner: Principal,
+    balance: Vec<(Principal, u64)>,
+    allow: Vec<(Principal, Vec<(Principal, u64)>)>,
+}
+
 #[init]
+#[candid_method(init)]
 fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
     unsafe {
         NAME = Box::leak(name.into_boxed_str());
@@ -35,6 +48,7 @@ fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
 }
 
 #[update(name = "transfer")]
+#[candid_method(update)]
 fn transfer(to: Principal, value: u64) -> bool {
     let from = api::caller();
     if from == to {
@@ -54,8 +68,10 @@ fn transfer(to: Principal, value: u64) -> bool {
 }
 
 #[update(name = "transferFrom")]
+#[candid_method(update, rename = "transferFrom")]
 fn transfer_from(from: Principal, to: Principal, value: u64) -> bool {
-    let from_allowance = allowance(from, to);
+    let owner = api::caller();
+    let from_allowance = allowance(from, owner);
     if from_allowance < value {
         false
     } else {
@@ -67,12 +83,26 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> bool {
             let balances = storage::get_mut::<Balances>();
             balances.insert(from, from_balance - value);
             balances.insert(to, to_balance + value);
+            let allowances_read = storage::get::<Allowances>();
+            match allowances_read.get(&from) {
+                Some(inner) => {
+                    let mut result = inner.get(&owner).unwrap();
+                    let mut temp = inner.clone();
+                    temp.insert(owner, result - value);
+                    let allowances = storage::get_mut::<Allowances>();
+                    allowances.insert(from, temp);
+                },
+                None => {
+                    assert!(false);
+                }
+            }
             true
         }
     }
 }
 
 #[update(name = "approve")]
+#[candid_method(update)]
 fn approve(spender: Principal, value: u64) -> bool {
     let owner = api::caller();
     let allowances_read = storage::get::<Allowances>();
@@ -94,6 +124,7 @@ fn approve(spender: Principal, value: u64) -> bool {
 }
 
 #[update(name = "mint")]
+#[candid_method(update)]
 fn mint(to: Principal, value: u64) -> bool {
     if api::caller() != to {
         false
@@ -113,6 +144,7 @@ fn mint(to: Principal, value: u64) -> bool {
 }
 
 #[update(name = "burn")]
+#[candid_method(update)]
 fn burn(from: Principal, value: u64) -> bool {
     if api::caller() != from || api::caller() != owner() {
         false
@@ -132,6 +164,7 @@ fn burn(from: Principal, value: u64) -> bool {
 }
 
 #[query(name = "balanceOf")]
+#[candid_method(query, rename = "balanceOf")]
 fn balance_of(id: Principal) -> u64 {
     let balances = storage::get::<Balances>();
     match balances.get(&id) {
@@ -141,6 +174,7 @@ fn balance_of(id: Principal) -> u64 {
 }
 
 #[query(name = "allowance")]
+#[candid_method(query)]
 fn allowance(owner: Principal, spender: Principal) -> u64 {
     let allowances = storage::get::<Allowances>();
     match allowances.get(&owner) {
@@ -155,6 +189,7 @@ fn allowance(owner: Principal, spender: Principal) -> u64 {
 }
 
 #[query(name = "name")]
+#[candid_method(query)]
 fn name() -> String {
     unsafe {
         NAME.to_string()
@@ -162,6 +197,7 @@ fn name() -> String {
 }
 
 #[query(name = "symbol")]
+#[candid_method(query)]
 fn symbol() -> String {
     unsafe {
         SYMBOL.to_string()
@@ -169,6 +205,7 @@ fn symbol() -> String {
 }
 
 #[query(name = "decimals")]
+#[candid_method(query)]
 fn decimals() -> u64 {
     unsafe {
         DECIMALS
@@ -176,6 +213,7 @@ fn decimals() -> u64 {
 }
 
 #[query(name = "totalSupply")]
+#[candid_method(query, rename = "totalSupply")]
 fn total_supply() -> u64 {
     unsafe {
         TOTALSUPPLY
@@ -183,6 +221,7 @@ fn total_supply() -> u64 {
 }
 
 #[query(name = "owner")]
+#[candid_method(query)]
 fn owner() -> Principal {
     unsafe {
         OWNER
@@ -190,7 +229,69 @@ fn owner() -> Principal {
 }
 
 #[query(name = "controller")]
+#[candid_method(query)]
 fn controller() -> Principal {
     // TODO: get token canister controller
     Principal::anonymous()
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn main() {}
+
+#[cfg(not(any(target_arch = "wasm32", test)))]
+fn main() {
+    candid::export_service!();
+    std::print!("{}", __export_service());
+}
+
+#[pre_upgrade]
+fn pre_upgrade() {
+    let name = unsafe{ NAME };
+    let symbol = unsafe{ SYMBOL };
+    let decimals = unsafe{ DECIMALS };
+    let total_supply = unsafe{ TOTALSUPPLY };
+    let owner = unsafe{ OWNER };
+    let mut balance = Vec::new();
+    // let mut allow: Vec<(Principal, Vec<(Principal, u64)>)> = Vec::new();
+    let mut allow = Vec::new();
+    for (k, v) in storage::get_mut::<Balances>().iter() {
+        balance.push((*k, *v));
+    }
+    for (k, v) in storage::get_mut::<Allowances>().iter() {
+        let mut item = Vec::new();
+        for (a, b) in v.iter() {
+            item.push((*a, *b));
+        }
+        allow.push((*k, item));
+    }
+    let name = name.to_string();
+    let symbol = symbol.to_string();
+    let up = UpgradePayload {
+        name, symbol, decimals, total_supply, owner, balance, allow,
+    };
+    storage::stable_save((up, )).unwrap();
+}
+
+#[post_upgrade]
+fn post_upgrade() {
+    // There can only be one value in stable memory, currently. otherwise, lifetime error.
+    // https://docs.rs/ic-cdk/0.3.0/ic_cdk/storage/fn.stable_restore.html
+    let (down, ) : (UpgradePayload, ) = storage::stable_restore().unwrap();
+    unsafe {
+        NAME = Box::leak(down.name.into_boxed_str());
+        SYMBOL = Box::leak(down.symbol.into_boxed_str());
+        DECIMALS = down.decimals;
+        TOTALSUPPLY = down.total_supply;
+        OWNER = down.owner;
+    }
+    for (k, v) in down.balance {
+        storage::get_mut::<Balances>().insert(k, v);
+    }
+    for (k, v) in down.allow {
+        let mut inner = HashMap::new();
+        for (a, b) in v {
+            inner.insert(a, b);
+        }
+        storage::get_mut::<Allowances>().insert(k, inner);
+    }
 }

@@ -8,8 +8,14 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib"]
 
+[[bin]]
+name = "erc20"
+path = "src/token.rs"
+
 [dependencies]
 ic-cdk = "0.3"
 ic-cdk-macros = "0.3"
 ic-types = "0.1.1"
 lazy_static = "1.4.0"
+candid = "0.6.19"
+serde = "1.0"
