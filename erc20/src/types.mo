@@ -24,8 +24,8 @@ module {
         index: Nat;
         from: ?Principal;
         to: ?Principal;
-        amount: Nat64;
-        fee: Nat64;
+        amount: Nat;
+        fee: Nat;
         timestamp: Time.Time;
     };
 };    

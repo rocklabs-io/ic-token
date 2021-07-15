@@ -42,8 +42,8 @@ shared(msg) actor class Storage(_owner: Principal) {
     };
 
     public shared(msg) func addRecord(
-        caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat64,
-        fee: Nat64, timestamp: Time.Time
+        caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat,
+        fee: Nat, timestamp: Time.Time
     ) : async Nat {
         assert(msg.caller == token_canister_id_);
         let index = ops.size();

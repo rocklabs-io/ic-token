@@ -17,22 +17,22 @@ import Array "mo:base/Array";
 import Option "mo:base/Option";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
-shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _totalSupply: Nat64, _owner: Principal) {
+shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
     type Operation = Types.Operation;
     type OpRecord = Types.OpRecord;
     type StorageActor = actor {
-        addRecord : (caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat64,
-            fee: Nat64, timestamp: Time.Time) -> async Nat;
+        addRecord : (caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat,
+            fee: Nat, timestamp: Time.Time) -> async Nat;
     };
     type Metadata = {
         name : Text;
         symbol : Text;
-        decimals : Nat64;
-        totalSupply : Nat64;
+        decimals : Nat;
+        totalSupply : Nat;
         owner : Principal;
         storageCanister : ?StorageActor;
         deployTime: Time.Time;
-        fee : Nat64;
+        fee : Nat;
         feeTo : Principal;
         userNumber : Nat;
         cycles : Nat;
@@ -40,16 +40,16 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     private stable var owner_ : Principal = _owner;
     private stable var name_ : Text = _name;
-    private stable var decimals_ : Nat64 = _decimals;
+    private stable var decimals_ : Nat = _decimals;
     private stable var symbol_ : Text = _symbol;
-    private stable var totalSupply_ : Nat64 = _totalSupply;
+    private stable var totalSupply_ : Nat = _totalSupply;
     private stable var storageCanister : ?StorageActor = null;
     private stable var feeTo : Principal = owner_;
-    private stable var fee : Nat64 = 0;
-    private stable var balanceEntries : [(Principal, Nat64)] = [];
-    private stable var allowanceEntries : [(Principal, [(Principal, Nat64)])] = [];
-    private var balances = HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
-    private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat64>>(1, Principal.equal, Principal.hash);
+    private stable var fee : Nat = 0;
+    private stable var balanceEntries : [(Principal, Nat)] = [];
+    private stable var allowanceEntries : [(Principal, [(Principal, Nat)])] = [];
+    private var balances = HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
+    private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat>>(1, Principal.equal, Principal.hash);
     balances.put(owner_, totalSupply_);
     private stable let genesis : OpRecord = {
         caller = owner_;
@@ -62,29 +62,29 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         timestamp = Time.now();
     };
 
-    private func _addFee(from: Principal, fee: Nat64) {
+    private func _addFee(from: Principal, fee: Nat) {
         _transfer(from, feeTo, fee);
     };
 
-    private func _transfer(from: Principal, to: Principal, value: Nat64) {
+    private func _transfer(from: Principal, to: Principal, value: Nat) {
         let from_balance = _balanceOf(from);
-        let from_balance_new : Nat64 = from_balance - value;
+        let from_balance_new : Nat = from_balance - value;
         if (from_balance_new != 0) { balances.put(from, from_balance_new); }
         else { balances.delete(from); };
 
         let to_balance = _balanceOf(to);
-        let to_balance_new : Nat64 = to_balance + value;
+        let to_balance_new : Nat = to_balance + value;
         if (to_balance_new != 0) { balances.put(to, to_balance_new); }
     };
 
-    private func _balanceOf(who: Principal) : Nat64 {
+    private func _balanceOf(who: Principal) : Nat {
         switch (balances.get(who)) {
             case (?balance) { return balance; };
             case (_) { return 0; };
         }
     };
 
-    private func _allowance(owner: Principal, spender: Principal) : Nat64 {
+    private func _allowance(owner: Principal, spender: Principal) : Nat {
         switch(allowances.get(owner)) {
             case (?allowance_owner) {
                 switch(allowance_owner.get(spender)) {
@@ -116,7 +116,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return true;
     };
 
-    public shared(msg) func setFee(_fee: Nat64) : async Bool {
+    public shared(msg) func setFee(_fee: Nat) : async Bool {
         assert(msg.caller == owner_);
         fee := _fee;
         return true;
@@ -133,7 +133,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     /// Transfers value amount of tokens to Principal to.
-    public shared(msg) func transfer(to: Principal, value: Nat64) : async Bool {
+    public shared(msg) func transfer(to: Principal, value: Nat) : async Bool {
         if (value < fee) { return false; };
         if (_balanceOf(msg.caller) < value) { return false; };
         _addFee(msg.caller, fee);
@@ -145,14 +145,14 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     /// Transfers value amount of tokens from Principal from to Principal to.
-    public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat64) : async Bool {
+    public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat) : async Bool {
         if (value < fee) { return false; };
         if (_balanceOf(from) < value) { return false; };
-        let allowed : Nat64 = _allowance(from, msg.caller);
+        let allowed : Nat = _allowance(from, msg.caller);
         if (allowed < value) { return false; };
         _addFee(from, fee);
         _transfer(from, to, value - fee);
-        let allowed_new : Nat64 = allowed - value;
+        let allowed_new : Nat = allowed - value;
         if (allowed_new != 0) {
             let allowance_from = Option.unwrap(allowances.get(from));
             allowance_from.put(msg.caller, allowed_new);
@@ -174,14 +174,14 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
     /// If this function is called again it overwrites the current allowance with value.
-    public shared(msg) func approve(spender: Principal, value: Nat64) : async Bool {
+    public shared(msg) func approve(spender: Principal, value: Nat) : async Bool {
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
             let allowance_caller = Option.unwrap(allowances.get(msg.caller));
             allowance_caller.delete(spender);
             if (allowance_caller.size() == 0) { allowances.delete(msg.caller); }
             else { allowances.put(msg.caller, allowance_caller); };
         } else if (value != 0 and Option.isNull(allowances.get(msg.caller))) {
-            var temp = HashMap.HashMap<Principal, Nat64>(1, Principal.equal, Principal.hash);
+            var temp = HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
             temp.put(spender, value);
             allowances.put(msg.caller, temp);
         } else if (value != 0 and Option.isSome(allowances.get(msg.caller))) {
@@ -196,7 +196,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     /// Creates value tokens and assigns them to Principal to, increasing the total supply.
-    public shared(msg) func mint(to: Principal, value: Nat64): async Bool {
+    public shared(msg) func mint(to: Principal, value: Nat): async Bool {
         assert(msg.caller == owner_);
         if (Option.isSome(balances.get(to))) {
             balances.put(to, Option.unwrap(balances.get(to)) + value);
@@ -213,7 +213,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return true;
     };
 
-    public shared(msg) func burn(from: Principal, value: Nat64): async Bool {
+    public shared(msg) func burn(from: Principal, value: Nat): async Bool {
         assert(msg.caller == owner_ or msg.caller == from);
         // if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
         if (value < fee) { return false; };
@@ -228,15 +228,15 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return true;
     };
 
-    public query func balanceOf(who: Principal) : async Nat64 {
+    public query func balanceOf(who: Principal) : async Nat {
         return _balanceOf(who);
     };
 
-    public query func allowance(owner: Principal, spender: Principal) : async Nat64 {
+    public query func allowance(owner: Principal, spender: Principal) : async Nat {
         return _allowance(owner, spender);
     };
 
-    public query func totalSupply() : async Nat64 {
+    public query func totalSupply() : async Nat {
         return totalSupply_;
     };
 
@@ -244,7 +244,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return name_;
     };
 
-    public query func decimals() : async Nat64 {
+    public query func decimals() : async Nat {
         return decimals_;
     };
 
@@ -260,7 +260,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return feeTo;
     };
 
-    public query func getFee() : async Nat64 {
+    public query func getFee() : async Nat {
         return fee;
     };
 
@@ -268,9 +268,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return balances.size();
     };
 
-    public query func getAllAllowed() : async [(Principal, [(Principal, Nat64)])] {
+    public query func getAllAllowed() : async [(Principal, [(Principal, Nat)])] {
         var size : Nat = allowances.size();
-        var res : [var (Principal, [(Principal, Nat64)])] = Array.init<(Principal, [(Principal, Nat64)])>(size, (owner_, []));
+        var res : [var (Principal, [(Principal, Nat)])] = Array.init<(Principal, [(Principal, Nat)])>(size, (owner_, []));
         size := 0;
         for ((k, v) in allowances.entries()) {
             res[size] := (k, Iter.toArray(v.entries()));
@@ -287,7 +287,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
         return size;   
     };
 
-    public query func getSomeAllowed(who : Principal) : async [(Principal, Nat64)] {
+    public query func getSomeAllowed(who : Principal) : async [(Principal, Nat)] {
         var size : Nat = 0;
         if (Option.isSome(allowances.get(who))) {
             let allowance_who = Option.unwrap(allowances.get(who));
@@ -303,7 +303,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     // no sure which is best, below vs Array.append();
-    public query func getAllAccounts() : async [(Principal, Nat64)] {
+    public query func getAllAccounts() : async [(Principal, Nat)] {
         return Iter.toArray(balances.entries());
     };
 
@@ -330,7 +330,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     system func preupgrade() {
         balanceEntries := Iter.toArray(balances.entries());
         var size : Nat = allowances.size();
-        var temp : [var (Principal, [(Principal, Nat64)])] = Array.init<(Principal, [(Principal, Nat64)])>(size, (owner_, []));
+        var temp : [var (Principal, [(Principal, Nat)])] = Array.init<(Principal, [(Principal, Nat)])>(size, (owner_, []));
         size := 0;
         for ((k, v) in allowances.entries()) {
             temp[size] := (k, Iter.toArray(v.entries()));
@@ -340,10 +340,10 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat64, _tot
     };
 
     system func postupgrade() {
-        balances := HashMap.fromIter<Principal, Nat64>(balanceEntries.vals(), 1, Principal.equal, Principal.hash);
+        balances := HashMap.fromIter<Principal, Nat>(balanceEntries.vals(), 1, Principal.equal, Principal.hash);
         balanceEntries := [];
         for ((k, v) in allowanceEntries.vals()) {
-            let allowed_temp = HashMap.fromIter<Principal, Nat64>(v.vals(), 1, Principal.equal, Principal.hash);
+            let allowed_temp = HashMap.fromIter<Principal, Nat>(v.vals(), 1, Principal.equal, Principal.hash);
             allowances.put(k, allowed_temp);
         };
         allowanceEntries := [];
