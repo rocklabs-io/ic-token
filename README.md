@@ -4,9 +4,16 @@ Token standard is essential for the Internet Computer ecosystem, especially for 
 
 Token templates:
 
-* [simple-erc20](./simple-erc20): Simple ERC20 style token canister implemented in motoko
-* [erc20](./erc20): Improved ERC20 style token canister template implemented in motoko
-* [token-rs](./token-rs): Rust implementation of token canister templates
+[motoko](./motoko): token canister templates implemented in motoko:
+
+* [simple-erc20](./motoko/simple-erc20): Simple ERC20 style token canister implemented in motoko
+* [erc20-simple-storage](./motoko/erc20-simple-storage): ERC20 style token canister implemented in motoko, support history transaction storage
+* [erc20](./motoko/erc20): Improved ERC20 style token canister template implemented in motoko, support history transaction storage in a seperate storage canister
+
+[rust](./rust): token canister templates implemented in Rust:
+
+* [erc20](./rust/src/erc20): Rust implementation of ERC20 style token canister template
+* [notify](./rust/src/notify): Rust implementation of notify scheme token canister template
 
 
 
