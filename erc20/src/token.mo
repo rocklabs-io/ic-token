@@ -13,7 +13,6 @@ import Types "./types";
 import Time "mo:base/Time";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
-// import Error "mo:base/Error";
 import Option "mo:base/Option";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
@@ -63,7 +62,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     };
 
     private func _addFee(from: Principal, fee: Nat) {
-        _transfer(from, feeTo, fee);
+        if(fee > 0) {
+            _transfer(from, feeTo, fee);
+        };
     };
 
     private func _transfer(from: Principal, to: Principal, value: Nat) {
@@ -128,7 +129,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
             let res = await Option.unwrap(storageCanister).addRecord(genesis.caller, genesis.op, genesis.from, genesis.to, 
                 genesis.amount, genesis.fee, genesis.timestamp);
             return res;
-        // } else { throw Error.reject("Storage Canister not set"); };
         } else { assert(false); return 0; };
     };
 
@@ -169,7 +169,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
             ignore Option.unwrap(storageCanister).addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
         };
         return true;
-        // } else { throw Error.reject("You have tried to spend more than allowed"); };
     };
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
@@ -192,7 +191,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         if (storageCanister != null) {
             ignore Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
         };
-        return true; 
+        return true;
     };
 
     /// Creates value tokens and assigns them to Principal to, increasing the total supply.
@@ -215,12 +214,10 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
 
     public shared(msg) func burn(from: Principal, value: Nat): async Bool {
         assert(msg.caller == owner_ or msg.caller == from);
-        // if (value < fee) { throw Error.reject("You have tried to burn less than the fee"); };
         if (value < fee) { return false; };
         if (Option.isSome(balances.get(from))) {
             balances.put(from, Option.unwrap(balances.get(from)) - value);
             totalSupply_ -= value;
-        // } else { throw Error.reject("You tried to burn from empty account " # Principal.toText(from)); };
         } else { return false; };
         if (storageCanister != null) {
             ignore Option.unwrap(storageCanister).addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
