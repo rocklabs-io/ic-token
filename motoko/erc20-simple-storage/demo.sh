@@ -35,30 +35,23 @@ dfx canister --no-wallet create --all
 dfx build
 
 TOKENID=$(dfx canister --no-wallet id token)
-STOREID=$(dfx canister --no-wallet id storage)
 TOKENID="principal \"$TOKENID\""
-STOREID="principal \"$STOREID\""
 
 echo Token id: $TOKENID
-echo Store id: $STOREID
 
 echo
-echo == Install token and storage canister
+echo == Install token canister
 echo
 
 HOME=$ALICE_HOME
 eval dfx canister --no-wallet install token --argument="'(\"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'"
-eval dfx canister --no-wallet install storage --argument="'($ALICE_PUBLIC_KEY)'"
 
 echo
-echo == Initial setting for token and storage canister
+echo == Initial setting for token canister
 echo
 
-eval dfx canister --no-wallet call token setStorageCanisterId "'(opt $STOREID)'"
-eval dfx canister --no-wallet call storage setTokenCanisterId "'($TOKENID)'"
 eval dfx canister --no-wallet call token setFeeTo "'($FEE_PUBLIC_KEY)'"
 eval dfx canister --no-wallet call token setFee "'(100)'"
-eval dfx canister --no-wallet call token addGenesisRecord
 
 echo
 echo == Initial token balances for Alice and Bob, Dan, FeeTo
@@ -191,7 +184,7 @@ dfx canister --no-wallet  call token getAllAllowed
 echo
 echo == all History
 echo
-eval dfx canister --no-wallet call storage allHistory
+eval dfx canister --no-wallet call token allHistory
 
 echo
 echo == Alice grants Dan permission to spend 50 of her tokens, should success.
@@ -358,7 +351,7 @@ echo Dan allowance for Alice = $( \
 echo
 echo == all History
 echo
-eval dfx canister --no-wallet call storage allHistory
+eval dfx canister --no-wallet call token allHistory
 
 echo
 echo == all holding account
@@ -373,7 +366,7 @@ dfx canister --no-wallet call token getMetadata
 echo
 echo == userNumber
 echo
-dfx canister --no-wallet  call token getUserNumber
+dfx canister --no-wallet  call token getHolderNumber
 
 echo
 echo == getCycles
@@ -399,7 +392,7 @@ eval dfx canister --no-wallet install token --argument="'(\"Test Token\", \"TT\"
 echo
 echo == all History
 echo
-eval dfx canister --no-wallet call storage allHistory
+eval dfx canister --no-wallet call token allHistory
 
 echo
 echo == all holding account
@@ -414,7 +407,7 @@ dfx canister --no-wallet call token getMetadata
 echo
 echo == userNumber
 echo
-dfx canister --no-wallet  call token getUserNumber
+dfx canister --no-wallet  call token getHolderNumber
 
 echo
 echo == getCycles
