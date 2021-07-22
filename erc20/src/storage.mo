@@ -69,6 +69,17 @@ shared(msg) actor class Storage(_owner: Principal) {
         return ops[index];
     };
 
+    /// Get history
+    public query func getHistory(start: Nat, num: Nat) : async [OpRecord] {
+        var ret: [OpRecord] = [];
+        var i = start;
+        while(i < start + num and i < ops.size()) {
+            ret := Array.append(ret, [ops[i]]);
+            i += 1;
+        };
+        return ret;
+    };
+
     /// Get history by account.
     public query func getHistoryByAccount(a: Principal) : async ?[OpRecord] {
         switch (ops_acc.get(a)) {
