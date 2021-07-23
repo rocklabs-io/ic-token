@@ -189,7 +189,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
             allowances.put(msg.caller, allowance_caller);
         };
         if (storageCanister != null) {
-            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
+            ignore Option.unwrap(storageCanister).addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, 0, Time.now());
         };
         return true;
     };

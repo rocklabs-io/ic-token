@@ -191,7 +191,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
             allowance_caller.put(spender, value);
             allowances.put(msg.caller, allowance_caller);
         };
-        addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, fee, Time.now());
+        addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, 0, Time.now());
         return true;
     };
 
