@@ -107,7 +107,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         let to_balance = _balanceOf(to);
         let to_balance_new : Nat = to_balance + value;
         if (to_balance_new != 0) { balances.put(to, to_balance_new); };
-        addRecord(from, #transfer, ?from, ?to, value, fee, Time.now());
     };
 
     private func _balanceOf(who: Principal) : Nat {
@@ -147,6 +146,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         if (_balanceOf(msg.caller) < value) { return false; };
         _addFee(msg.caller, fee);
         _transfer(msg.caller, to, value - fee);
+        addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
         return true;
     };
 
@@ -171,6 +171,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
                 else { allowances.put(from, allowance_from); };
             };
         };
+        addRecord(from, #transfer, ?from, ?to, value, fee, Time.now());
         return true;
     };
 
