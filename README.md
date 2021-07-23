@@ -4,7 +4,7 @@ Token standard is essential for the Internet Computer ecosystem, especially for 
 
 Token templates:
 
-[motoko](./motoko): token canister templates implemented in motoko:
+[motoko](./motoko): token canister templates implemented in Motoko:
 
 * [simple-erc20](./motoko/simple-erc20): Simple ERC20 style token canister implemented in motoko
 * [erc20-simple-storage](./motoko/erc20-simple-storage): ERC20 style token canister implemented in motoko, support history transaction storage
