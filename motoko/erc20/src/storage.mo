@@ -9,6 +9,7 @@
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
 import Array "mo:base/Array";
+import Iter "mo:base/Iter";
 import Option "mo:base/Option";
 import Time "mo:base/Time";
 import Types "./types";
@@ -20,8 +21,19 @@ shared(msg) actor class Storage(_owner: Principal) {
 
     private stable var owner_ : Principal = _owner;
     private stable var token_canister_id_ : Principal = msg.caller;
-    private var ops : [var OpRecord] = [var];
-    private var ops_acc = HashMap.HashMap<Principal, [var OpRecord]>(1, Principal.equal, Principal.hash);
+    private stable var ops : [var OpRecord] = [var];
+    private var ops_acc = HashMap.HashMap<Principal, [Nat]>(1, Principal.equal, Principal.hash);
+
+    private stable var opsAccEntries: [(Principal, [Nat])] = [];
+
+    system func preupgrade() {
+        opsAccEntries := Iter.toArray(ops_acc.entries());
+    };
+
+    system func postupgrade() {
+        ops_acc := HashMap.fromIter<Principal, [Nat]>(opsAccEntries.vals(), 1, Principal.equal, Principal.hash);
+        opsAccEntries := [];
+    };
 
     public shared(msg) func setTokenCanisterId(token: Principal) : async Bool {
         assert(msg.caller == owner_);
@@ -32,12 +44,12 @@ shared(msg) actor class Storage(_owner: Principal) {
     private func putOpsAcc(who: Principal, o: OpRecord) {
         switch (ops_acc.get(who)) {
             case (?op_acc) {
-                var op_new : [var OpRecord] = Array.thaw(Array.append(Array.freeze(op_acc), Array.make(o)));
+                var op_new : [Nat] = Array.append(op_acc, [o.index]);
                 ops_acc.put(who, op_new);
             };
             case (_) {
-                ops_acc.put(who, Array.thaw(Array.make(o)));
-            };            
+                ops_acc.put(who, [o.index]);
+            };   
         }
     };
 
@@ -84,8 +96,11 @@ shared(msg) actor class Storage(_owner: Principal) {
     public query func getHistoryByAccount(a: Principal) : async ?[OpRecord] {
         switch (ops_acc.get(a)) {
             case (?op_acc) {
-                let res = Array.freeze(op_acc);
-                return ?res;
+                var ret: [OpRecord] = [];
+                for(i in Iter.fromArray(op_acc)) {
+                    ret := Array.append(ret, [ops[i]]);
+                };
+                return ?ret;
             };
             case (_) {
                 return null;
