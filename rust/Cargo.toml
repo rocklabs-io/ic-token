@@ -2,4 +2,5 @@
 members = [
 	"src/erc20",
 	"src/notify",
+	"src/erc20-tx-storage",
 ]

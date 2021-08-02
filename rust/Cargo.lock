@@ -261,6 +261,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "erc20-tx-storage"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "ic-types",
+ "lazy_static",
+ "serde",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
