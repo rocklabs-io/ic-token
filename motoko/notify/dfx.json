@@ -1,0 +1,8 @@
+{
+  "canisters": {
+    "notify": {
+      "type": "motoko",
+      "main": "src/token.mo"
+    }
+  }
+}
