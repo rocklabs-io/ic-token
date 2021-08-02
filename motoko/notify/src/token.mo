@@ -14,6 +14,7 @@ import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
+import TrieSet "mo:base/TrieSet";
 
 shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
     type Operation = Types.Operation;
@@ -31,6 +32,9 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         holderNumber : Nat;
         cycles : Nat;
     };
+    type ReceiveActor = actor {
+        transaction_notification: (caller: Principal, tx: OpRecord) -> async Bool;
+    };
 
     private stable var owner_ : Principal = _owner;
     private stable var name_ : Text = _name;
@@ -44,7 +48,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     private var balances = HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
     private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat>>(1, Principal.equal, Principal.hash);
     balances.put(owner_, totalSupply_);
-    private stable let genesis : OpRecord = {
+    private let genesis : OpRecord = {
         caller = owner_;
         op = #init;
         index = 0;
@@ -55,21 +59,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         timestamp = Time.now();
     };
     private stable var ops : [OpRecord] = [genesis];
-    // private stable var opsAccEntries : [(Principal, [Nat])] = [];
-    // private var ops_acc = HashMap.HashMap<Principal, [Nat]>(1, Principal.equal, Principal.hash);
-    // ops_acc.put(owner_, [0]);
-
-    // private func putOpsAcc(who: Principal, o: OpRecord) {
-    //     switch (ops_acc.get(who)) {
-    //         case (?op_acc) {
-    //             var op_new : [Nat] = Array.append(op_acc, [o.index]);
-    //             ops_acc.put(who, op_new);
-    //         };
-    //         case (_) {
-    //             ops_acc.put(who, [o.index]);
-    //         };            
-    //     }
-    // };
+    private stable var notified = TrieSet.empty<Nat>();
 
     private func addRecord(
         caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat,
@@ -87,9 +77,6 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
             timestamp = timestamp;
         };
         ops := Array.append(ops, [o]);
-        // putOpsAcc(caller, o);
-        // if ((not Option.isNull(from)) and (from != ?caller)) { putOpsAcc(Option.unwrap(from), o); };
-        // if ((not Option.isNull(to)) and (to != ?caller) and (to != from) ) { putOpsAcc(Option.unwrap(to), o); };
     };
 
     private func _addFee(from: Principal, fee: Nat) {
@@ -221,6 +208,11 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         } else { return false; };
         addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
         return true;
+    };
+
+    public shared(msg) func notify(tx_index: Nat, to_canister: Principal): async Bool {
+        let to_handler : ReceiveActor = actor(Principal.toText(to_canister));
+        return await to_handler.transaction_notification(msg.caller, ops[tx_index]);
     };
 
     public query func balanceOf(who: Principal) : async Nat {
