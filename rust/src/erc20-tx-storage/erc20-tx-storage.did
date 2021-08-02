@@ -1,0 +1,29 @@
+type OpRecord = record {
+  op : Operation;
+  to : opt principal;
+  from : opt principal;
+  timestamp : nat64;
+  caller : principal;
+  index : nat64;
+  amount : nat64;
+};
+type Operation = variant { Approve; Burn; Init; Mint; Transfer };
+service : (text, text, nat64, nat64) -> {
+  all_history : () -> (vec OpRecord) query;
+  allowance : (principal, principal) -> (nat64) query;
+  approve : (principal, nat64) -> (bool);
+  balanceOf : (principal) -> (nat64) query;
+  burn : (principal, nat64) -> (bool);
+  controller : () -> (principal) query;
+  decimals : () -> (nat64) query;
+  get_history : (nat64, nat64) -> (vec OpRecord) query;
+  get_history_by_account : (principal) -> (vec OpRecord) query;
+  get_history_by_index : (nat64) -> (OpRecord) query;
+  mint : (principal, nat64) -> (bool);
+  name : () -> (text) query;
+  owner : () -> (principal) query;
+  symbol : () -> (text) query;
+  totalSupply : () -> (nat64) query;
+  transfer : (principal, nat64) -> (bool);
+  transferFrom : (principal, principal, nat64) -> (bool);
+}

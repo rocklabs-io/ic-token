@@ -11,7 +11,7 @@ use ic_cdk_macros::*;
 use std::collections::HashMap;
 use candid::{candid_method, CandidType};
 use std::string::String;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
 
 static mut NAME: &str = "";
 static mut SYMBOL: &str = "";
@@ -36,7 +36,7 @@ struct UpgradePayload {
 
 #[derive(CandidType, Clone, Copy)]
 enum Operation {
-    mint, burn, transfer, approve, init,
+    Mint, Burn, Transfer, Approve, Init
 }
 
 #[derive(CandidType, Clone, Copy)]
@@ -72,8 +72,7 @@ fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
         OWNER = api::caller();
         let balances = storage::get_mut::<Balances>();
         balances.insert(OWNER, TOTALSUPPLY);
-        let ops = storage::get_mut::<Ops>();
-        add_record(OWNER, Operation::init, None, Some(OWNER), TOTALSUPPLY, api::time());
+        add_record(OWNER, Operation::Init, None, Some(OWNER), TOTALSUPPLY, api::time());
     }
 }
 
@@ -81,19 +80,16 @@ fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
 #[candid_method(update)]
 fn transfer(to: Principal, value: u64) -> bool {
     let from = api::caller();
-    if from == to {
-        return false;
-    }
     let from_balance = balance_of(from);
     api::print(from_balance.to_string());
     if from_balance < value {
         false
     } else {
-        let to_balance = balance_of(to);
         let balances = storage::get_mut::<Balances>();
         balances.insert(from, from_balance - value);
+        let to_balance = balance_of(to);
         balances.insert(to, to_balance + value);
-        add_record(from, Operation::transfer, Some(from), Some(to), value, api::time());
+        add_record(from, Operation::Transfer, Some(from), Some(to), value, api::time());
         true
     }
 }
@@ -117,7 +113,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> bool {
             let allowances_read = storage::get::<Allowances>();
             match allowances_read.get(&from) {
                 Some(inner) => {
-                    let mut result = inner.get(&owner).unwrap();
+                    let result = inner.get(&owner).unwrap();
                     let mut temp = inner.clone();
                     temp.insert(owner, result - value);
                     let allowances = storage::get_mut::<Allowances>();
@@ -127,7 +123,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> bool {
                     assert!(false);
                 }
             }
-            add_record(owner, Operation::transfer, Some(from), Some(to), value, api::time());
+            add_record(owner, Operation::Transfer, Some(from), Some(to), value, api::time());
             true
         }
     }
@@ -152,14 +148,14 @@ fn approve(spender: Principal, value: u64) -> bool {
             allowances.insert(owner, inner);
         }
     }
-    add_record(owner, Operation::approve, Some(owner), Some(spender), value, api::time());
+    add_record(owner, Operation::Approve, Some(owner), Some(spender), value, api::time());
     true
 }
 
 #[update(name = "mint")]
 #[candid_method(update)]
 fn mint(to: Principal, value: u64) -> bool {
-    if api::caller() != to {
+    if api::caller() != owner() {
         false
     } else {
         let balance_before = balance_of(to);
@@ -171,7 +167,7 @@ fn mint(to: Principal, value: u64) -> bool {
             unsafe {
                 TOTALSUPPLY += value;
             }
-            add_record(api::caller(), Operation::mint, None, Some(to), value, api::time());    
+            add_record(api::caller(), Operation::Mint, None, Some(to), value, api::time());    
             true
         }
     }
@@ -192,7 +188,7 @@ fn burn(from: Principal, value: u64) -> bool {
             unsafe {
                 TOTALSUPPLY -= value;
             }
-            add_record(api::caller(), Operation::burn, Some(from), None, value, api::time());
+            add_record(api::caller(), Operation::Burn, Some(from), None, value, api::time());
             true
         }
     }
@@ -291,6 +287,7 @@ fn get_history(start: usize, num: usize) -> Vec<OpRecord> {
     let mut i = start;
     while i < start + num && i < ops.len() {
         res.push(ops[i]);
+        i += 1;
     }
     res
 }
