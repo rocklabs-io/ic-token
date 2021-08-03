@@ -2,3 +2,5 @@
 .dfx/
 build/
 target
+.config
+.cache

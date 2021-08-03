@@ -56,22 +56,7 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
         fee = 0;
         timestamp = Time.now();
     };
-    private stable var ops : [var OpRecord] = [var genesis];
-    private stable var opsAccEntries : [(Principal, [Nat])] = [];
-    private var ops_acc = HashMap.HashMap<Principal, [Nat]>(1, Principal.equal, Principal.hash);
-    ops_acc.put(owner_, [0]);
-
-    private func putOpsAcc(who: Principal, o: OpRecord) {
-        switch (ops_acc.get(who)) {
-            case (?op_acc) {
-                var op_new : [Nat] = Array.append(op_acc, [o.index]);
-                ops_acc.put(who, op_new);
-            };
-            case (_) {
-                ops_acc.put(who, [o.index]);
-            };            
-        }
-    };
+    private stable var ops : [OpRecord] = [genesis];
 
     private func addRecord(
         caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat,
@@ -88,10 +73,7 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
             fee = fee;
             timestamp = timestamp;
         };
-        ops := Array.thaw(Array.append(Array.freeze(ops), Array.make(o)));
-        putOpsAcc(caller, o);
-        if ((not Option.isNull(from)) and (from != ?caller)) { putOpsAcc(Option.unwrap(from), o); };
-        if ((not Option.isNull(to)) and (to != ?caller) and (to != from) ) { putOpsAcc(Option.unwrap(to), o); };
+        ops := Array.append(ops, [o]);
     };
 
     private func _addFee(from: Principal, fee: Nat) {
@@ -292,24 +274,19 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
     };
 
     /// Get history by account.
-    public query func getHistoryByAccount(a: Principal) : async ?[OpRecord] {
-        switch (ops_acc.get(a)) {
-            case (?op_acc) {
-                var ret: [OpRecord] = [];
-                for(i in Iter.fromArray(op_acc)) {
-                    ret := Array.append(ret, [ops[i]]);
-                };
-                return ?ret;
+    public query func getHistoryByAccount(a: Principal) : async [OpRecord] {
+        var res: [OpRecord] = [];
+        for (i in ops.vals()) {
+            if (i.caller == a or (Option.isSome(i.from) and Option.unwrap(i.from) == a) or (Option.isSome(i.to) and Option.unwrap(i.to) == a)) {
+                res := Array.append<OpRecord>(res, [i]);
             };
-            case (_) {
-                return null;
-            };
-        }
+        };
+        return res;
     };
     
     /// Get all update call history.
     public query func allHistory() : async [OpRecord] {
-        return Array.freeze(ops);
+        return ops;
     };
 
     public query func getAllAllowed() : async [(Principal, [(Principal, Nat)])] {
@@ -382,7 +359,6 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
             size += 1;
         };
         allowanceEntries := Array.freeze(temp);
-        opsAccEntries := Iter.toArray(ops_acc.entries());
     };
 
     system func postupgrade() {
@@ -393,7 +369,5 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
             allowances.put(k, allowed_temp);
         };
         allowanceEntries := [];
-        ops_acc := HashMap.fromIter<Principal, [Nat]>(opsAccEntries.vals(), 1, Principal.equal, Principal.hash);
-        opsAccEntries := [];
     };
 };
