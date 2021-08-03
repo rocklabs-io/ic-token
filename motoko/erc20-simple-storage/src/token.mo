@@ -15,10 +15,11 @@ import Array "mo:base/Array";
 import Option "mo:base/Option";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
-shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
+shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
     type Operation = Types.Operation;
     type OpRecord = Types.OpRecord;
     type Metadata = {
+        logo : Text;
         name : Text;
         symbol : Text;
         decimals : Nat;
@@ -33,6 +34,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     };
 
     private stable var owner_ : Principal = _owner;
+    private stable var logo_ : Text = _logo;
     private stable var name_ : Text = _name;
     private stable var decimals_ : Nat = _decimals;
     private stable var symbol_ : Text = _symbol;
@@ -140,6 +142,12 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
         return true;
     };
 
+    public shared(msg) func setLogo(logo: Text) : async Bool {
+        assert(msg.caller == owner_);
+        logo_ := logo;
+        return true;
+    };
+
     /// Transfers value amount of tokens to Principal to.
     public shared(msg) func transfer(to: Principal, value: Nat) : async Bool {
         if (value < fee) { return false; };
@@ -233,6 +241,10 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
 
     public query func totalSupply() : async Nat {
         return totalSupply_;
+    };
+
+    public query func logo() : async Text {
+        return logo_;
     };
 
     public query func name() : async Text {
@@ -345,6 +357,7 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
 
     public query func getMetadata() : async Metadata {
         return {
+            logo = logo_;
             name = name_;
             symbol = symbol_;
             decimals = decimals_;
