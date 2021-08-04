@@ -15,7 +15,16 @@ import Array "mo:base/Array";
 import Option "mo:base/Option";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
-shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
+shared(msg) actor class Token(
+    _logo: Text,
+    _name: Text, 
+    _symbol: Text,
+    _decimals: Nat, 
+    _totalSupply: Nat, 
+    _owner: Principal, 
+    _mintable: Bool, 
+    _burnable: Bool
+    ) {
     type Operation = Types.Operation;
     type OpRecord = Types.OpRecord;
     type Metadata = {
@@ -24,6 +33,8 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
         symbol : Text;
         decimals : Nat;
         totalSupply : Nat;
+        mintable: Bool;
+        burnable: Bool;
         owner : Principal;
         historySize : Nat;
         deployTime: Time.Time;
@@ -39,6 +50,8 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
     private stable var decimals_ : Nat = _decimals;
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat = _totalSupply;
+    private stable var mintable_ : Bool = _mintable;
+    private stable var burnable_ : Bool = _burnable;
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat = 0;
     private stable var balanceEntries : [(Principal, Nat)] = [];
@@ -204,8 +217,21 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
         return true;
     };
 
+    public shared(msg) func setMintable(v: Bool): async Bool {
+        assert(msg.caller == owner_);
+        mintable_ := v;
+        return true;
+    };
+
+    public shared(msg) func setBurnable(v: Bool): async Bool {
+        assert(msg.caller == owner_);
+        burnable_ := v;
+        return true;
+    };
+
     /// Creates value tokens and assigns them to Principal to, increasing the total supply.
     public shared(msg) func mint(to: Principal, value: Nat): async Bool {
+        assert(mintable_);
         assert(msg.caller == owner_);
         if (Option.isSome(balances.get(to))) {
             balances.put(to, Option.unwrap(balances.get(to)) + value);
@@ -221,6 +247,7 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
     };
 
     public shared(msg) func burn(from: Principal, value: Nat): async Bool {
+        assert(burnable_);
         assert(msg.caller == owner_ or msg.caller == from);
         if (value < fee) { return false; };
         if (Option.isSome(balances.get(from))) {
@@ -362,6 +389,8 @@ shared(msg) actor class Token(_logo: Text, _name: Text, _symbol: Text, _decimals
             symbol = symbol_;
             decimals = decimals_;
             totalSupply = totalSupply_;
+            mintable = mintable_;
+            burnable = burnable_;
             owner = owner_;
             historySize = ops.size();
             deployTime = genesis.timestamp;
