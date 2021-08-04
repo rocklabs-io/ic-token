@@ -1,6 +1,6 @@
 ## ERC20 style token template for the IC
 
-See [demo.sh](./demo.sh).
+Simple ERC20 style token canister, only implemented the most basic token functions.
 
 ## Reference
 

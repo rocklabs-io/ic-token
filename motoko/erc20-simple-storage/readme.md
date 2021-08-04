@@ -1,6 +1,6 @@
 ## ERC20 style token template for the IC
 
-Support storage of history operations.
+Support storage of history operations, token logic and history storage in the same canister.
 
 ## Reference
 
