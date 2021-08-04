@@ -6,10 +6,10 @@
 dfx stop
 rm -rf .dfx
 
-ALICE_HOME=$(mktemp -d -t alice-temp)
-BOB_HOME=$(mktemp -d -t bob-temp)
-DAN_HOME=$(mktemp -d -t dan-temp)
-FEE_HOME=$(mktemp -d -t fee-temp)
+ALICE_HOME=$(mktemp -d)
+BOB_HOME=$(mktemp -d)
+DAN_HOME=$(mktemp -d)
+FEE_HOME=$(mktemp -d)
 HOME=$ALICE_HOME
 
 ALICE_PUBLIC_KEY="principal \"$( \
@@ -44,7 +44,7 @@ echo == Install token canister
 echo
 
 HOME=$ALICE_HOME
-eval dfx canister --no-wallet install token --argument="'(\"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'"
+eval dfx canister --no-wallet install token --argument="'(\"https://api.google.com/1\", \"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'"
 
 echo
 echo == Initial setting for token canister
@@ -384,10 +384,31 @@ echo
 dfx canister --no-wallet  call token getAllAllowed
 
 echo
+echo == get alice History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($ALICE_PUBLIC_KEY)'"
+
+echo
+echo == get bob History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($BOB_PUBLIC_KEY)'"
+
+echo
+echo == get dan History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($DAN_PUBLIC_KEY)'"
+
+echo
+echo == get fee History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($FEE_PUBLIC_KEY)'"
+
+
+echo
 echo == Upgrade token
 echo
 HOME=$ALICE_HOME
-eval dfx canister --no-wallet install token --argument="'(\"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'" -m=upgrade
+eval dfx canister --no-wallet install token --argument="'(\"https://api.google.com/2\", \"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'" -m=upgrade
 
 echo
 echo == all History
@@ -423,5 +444,25 @@ echo
 echo == getAllAllowed
 echo
 dfx canister --no-wallet  call token getAllAllowed
+
+echo
+echo == get alice History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($ALICE_PUBLIC_KEY)'"
+
+echo
+echo == get bob History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($BOB_PUBLIC_KEY)'"
+
+echo
+echo == get dan History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($DAN_PUBLIC_KEY)'"
+
+echo
+echo == get fee History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($FEE_PUBLIC_KEY)'"
 
 dfx stop
