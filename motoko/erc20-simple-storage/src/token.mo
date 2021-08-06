@@ -300,6 +300,30 @@ shared(msg) actor class Token(
         return ret;
     };
 
+    public query func getUserOpAmount(a: Principal) : async Nat {
+        var res: Nat = 0;
+        for (i in ops.vals()) {
+            if (i.caller == a or (Option.isSome(i.from) and Option.unwrap(i.from) == a) or (Option.isSome(i.to) and Option.unwrap(i.to) == a)) {
+                res += 1;
+            };
+        };
+        return res;
+    };
+
+    public query func getUserHistory(a: Principal, start: Nat, num: Nat) : async [OpRecord] {
+        var res: [OpRecord] = [];
+        var index: Nat = 0;
+        for (i in ops.vals()) {
+            if (i.caller == a or (Option.isSome(i.from) and Option.unwrap(i.from) == a) or (Option.isSome(i.to) and Option.unwrap(i.to) == a)) {
+                if(index >= start and index < start + num) {
+                    res := Array.append<OpRecord>(res, [i]);
+                };
+                index += 1;
+            };
+        };
+        return res;
+    };
+
     /// Get history by account.
     public query func getHistoryByAccount(a: Principal) : async [OpRecord] {
         var res: [OpRecord] = [];
