@@ -231,8 +231,8 @@ shared(msg) actor class Token(
     public shared(msg) func burn(from: Principal, value: Nat): async Bool {
         assert(burnable_);
         assert(msg.caller == owner_ or msg.caller == from);
-        if (value < fee) { return false; };
         if (Option.isSome(balances.get(from))) {
+            if (Option.unwrap(balances.get(from)) < value) { return false; };
             balances.put(from, Option.unwrap(balances.get(from)) - value);
             totalSupply_ -= value;
         } else { return false; };
