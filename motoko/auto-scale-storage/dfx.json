@@ -1,0 +1,10 @@
+{
+  "canisters": {
+    "token": {
+      "main": "src/token.mo"
+    },
+    "storage": {
+      "main": "src/storage.mo"
+    }
+  }
+}
