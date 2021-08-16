@@ -8,7 +8,7 @@ Token templates:
 
 * [simple-erc20](./motoko/simple-erc20): Simple ERC20 style token canister implemented in motoko
 * [erc20-simple-storage](./motoko/erc20-simple-storage): ERC20 style token canister implemented in motoko, support history transaction storage
-* [erc20](./motoko/erc20): Improved ERC20 style token canister template implemented in motoko, support history transaction storage in a seperate storage canister
+* [erc20](./motoko/erc20): Improved ERC20 style token canister template implemented in motoko, support history transaction storage in a separate storage canister
 * [notify](./motoko/notify): Notify scheme token canister template
 
 [rust](./rust): token canister templates implemented in Rust:
