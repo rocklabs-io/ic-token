@@ -232,8 +232,10 @@ shared(msg) actor class Token(
         assert(burnable_);
         assert(msg.caller == owner_ or msg.caller == from);
         if (Option.isSome(balances.get(from))) {
-            if (Option.unwrap(balances.get(from)) < value) { return false; };
-            balances.put(from, Option.unwrap(balances.get(from)) - value);
+            let balance_from = _balanceOf(from);
+            if (balance_from < value) { return false; }
+            else if (balance_from == value) { balances.delete(from); }
+            else { balances.put(from, balance_from - value); };
             totalSupply_ -= value;
         } else { return false; };
         addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
