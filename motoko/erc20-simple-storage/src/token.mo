@@ -378,11 +378,10 @@ shared(msg) actor class Token(
         else { return 0; };
     };
 
-    // no sure which is best, below vs Array.append();
     public query func getAccounts(start: Nat, num: Nat) : async [(Principal, Nat)] {
         let temp =  Iter.toArray(balances.entries());
         func order (a: (Principal, Nat), b: (Principal, Nat)) : Order.Order {
-            return Nat.compare(a.1, b.1);
+            return Nat.compare(b.1, a.1);
         };
         let sorted = Array.sort(temp, order);
         let res = Array.init<(Principal, Nat)>(num, (owner_, 0));
