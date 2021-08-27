@@ -13,6 +13,8 @@ import Time "mo:base/Time";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
+import Order "mo:base/Order";
+import Nat "mo:base/Nat";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
 shared(msg) actor class Token(
@@ -377,8 +379,17 @@ shared(msg) actor class Token(
     };
 
     // no sure which is best, below vs Array.append();
-    public query func getAllAccounts() : async [(Principal, Nat)] {
-        return Iter.toArray(balances.entries());
+    public query func getAccounts(start: Nat, num: Nat) : async [(Principal, Nat)] {
+        let temp =  Iter.toArray(balances.entries());
+        func order (a: (Principal, Nat), b: (Principal, Nat)) : Order.Order {
+            return Nat.compare(a.1, b.1);
+        };
+        let sorted = Array.sort(temp, order);
+        let res = Array.init<(Principal, Nat)>(num, (owner_, 0));
+        for (i in Iter.range(0, num-1)) {
+            res[i] := sorted[i+start];
+        };
+        return Array.freeze(res);
     };
 
     public query func getCycles() : async Nat {
