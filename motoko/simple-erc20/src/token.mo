@@ -8,6 +8,8 @@
  
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
+import Iter "mo:base/Iter";
+import Array "mo:base/Array";
 
 shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _totalSupply: Nat, _owner: Principal) {
     private stable var owner_ : Principal = _owner;
@@ -16,6 +18,8 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat = _totalSupply;
 
+    private stable var balancesEntries : [(Principal, Nat)] = [];
+    private stable var allowancesEntries : [(Principal, [(Principal, Nat)])] = [];
     private var balances =  HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
     private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat>>(1, Principal.equal, Principal.hash);
 
@@ -193,5 +197,27 @@ shared(msg) actor class Token(_name: Text, _symbol: Text, _decimals: Nat, _total
 
     public query func owner() : async Principal {
         return owner_;
+    };
+
+    system func preupgrade() {
+        balancesEntries := Iter.toArray(balances.entries());
+        var size : Nat = allowances.size();
+        let temp : [var (Principal, [(Principal, Nat)])] = Array.init<(Principal, [(Principal, Nat)])>(size, (owner_, []));
+        size := 0;
+        for ((k, v) in allowances.entries()) {
+            temp[size] := (k, Iter.toArray(v.entries()));
+            size += 1;
+        };
+        allowancesEntries := Array.freeze(temp);
+    };
+
+    system func postupgrade() {
+        balances := HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 1, Principal.equal, Principal.hash);
+        balancesEntries := [];
+        for ((k, v) in allowancesEntries.vals()) {
+            let allowed_temp = HashMap.fromIter<Principal, Nat>(v.vals(), 1, Principal.equal, Principal.hash);
+            allowances.put(k, allowed_temp);
+        };
+        allowancesEntries := [];
     };
 };
