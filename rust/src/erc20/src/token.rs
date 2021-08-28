@@ -11,7 +11,7 @@ use ic_cdk_macros::*;
 use std::collections::HashMap;
 use candid::{candid_method, CandidType};
 use std::string::String;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
 
 static mut NAME: &str = "";
 static mut SYMBOL: &str = "";
@@ -86,7 +86,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> bool {
             let allowances_read = storage::get::<Allowances>();
             match allowances_read.get(&from) {
                 Some(inner) => {
-                    let mut result = inner.get(&owner).unwrap();
+                    let result = inner.get(&owner).unwrap();
                     let mut temp = inner.clone();
                     temp.insert(owner, result - value);
                     let allowances = storage::get_mut::<Allowances>();
@@ -252,7 +252,6 @@ fn pre_upgrade() {
     let total_supply = unsafe{ TOTALSUPPLY };
     let owner = unsafe{ OWNER };
     let mut balance = Vec::new();
-    // let mut allow: Vec<(Principal, Vec<(Principal, u64)>)> = Vec::new();
     let mut allow = Vec::new();
     for (k, v) in storage::get_mut::<Balances>().iter() {
         balance.push((*k, *v));
