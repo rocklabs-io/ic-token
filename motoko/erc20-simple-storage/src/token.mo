@@ -393,7 +393,7 @@ shared(msg) actor class Token(
         for (i in Iter.range(0, limit-1)) {
             res[i] := sorted[i+start];
         };
-        return (Array.freeze(res), limit);
+        return (Array.freeze(res), sorted.size());
     };
 
     public query func getCycles() : async Nat {
