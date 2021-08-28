@@ -378,17 +378,22 @@ shared(msg) actor class Token(
         else { return 0; };
     };
 
-    public query func getAccounts(start: Nat, num: Nat) : async [(Principal, Nat)] {
+    public query func getAccounts(start: Nat, num: Nat) : async ([(Principal, Nat)], Nat) {
         let temp =  Iter.toArray(balances.entries());
         func order (a: (Principal, Nat), b: (Principal, Nat)) : Order.Order {
             return Nat.compare(b.1, a.1);
         };
         let sorted = Array.sort(temp, order);
-        let res = Array.init<(Principal, Nat)>(num, (owner_, 0));
-        for (i in Iter.range(0, num-1)) {
+        let limit: Nat = if(start + num > temp.size()) {
+            temp.size() - start
+        } else {
+            num
+        };
+        let res = Array.init<(Principal, Nat)>(limit, (owner_, 0));
+        for (i in Iter.range(0, limit-1)) {
             res[i] := sorted[i+start];
         };
-        return Array.freeze(res);
+        return (Array.freeze(res), limit);
     };
 
     public query func getCycles() : async Nat {
