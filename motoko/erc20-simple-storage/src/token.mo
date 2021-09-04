@@ -52,6 +52,7 @@ shared(msg) actor class Token(
     private stable var totalSupply_ : Nat = _totalSupply;
     private stable var mintable_ : Bool = _mintable;
     private stable var burnable_ : Bool = _burnable;
+    private stable var blackhole : Principal = Principal.fromText("aaaaa-aa");
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat = 0;
     private stable var balanceEntries : [(Principal, Nat)] = [];
@@ -63,8 +64,8 @@ shared(msg) actor class Token(
         caller = owner_;
         op = #init;
         index = 0;
-        from = null;
-        to = ?owner_;
+        from = blackhole;
+        to = owner_;
         amount = totalSupply_;
         fee = 0;
         timestamp = Time.now();
@@ -72,7 +73,7 @@ shared(msg) actor class Token(
     private stable var ops : [OpRecord] = [genesis];
 
     private func addRecord(
-        caller: Principal, op: Operation, from: ?Principal, to: ?Principal, amount: Nat,
+        caller: Principal, op: Operation, from: Principal, to: Principal, amount: Nat,
         fee: Nat, timestamp: Time.Time
     ) {
         let index = ops.size();
@@ -89,7 +90,7 @@ shared(msg) actor class Token(
         ops := Array.append(ops, [o]);
     };
 
-    private func _addFee(from: Principal, fee: Nat) {
+    private func _chargeFee(from: Principal, fee: Nat) {
         if(fee > 0) {
             _transfer(from, feeTo, fee);
         };
@@ -147,9 +148,9 @@ shared(msg) actor class Token(
     public shared(msg) func transfer(to: Principal, value: Nat) : async Bool {
         if (value < fee) { return false; };
         if (_balanceOf(msg.caller) < value) { return false; };
-        _addFee(msg.caller, fee);
+        _chargeFee(msg.caller, fee);
         _transfer(msg.caller, to, value - fee);
-        addRecord(msg.caller, #transfer, ?msg.caller, ?to, value, fee, Time.now());
+        addRecord(msg.caller, #transfer, msg.caller, to, value, fee, Time.now());
         return true;
     };
 
@@ -159,7 +160,7 @@ shared(msg) actor class Token(
         if (_balanceOf(from) < value) { return false; };
         let allowed : Nat = _allowance(from, msg.caller);
         if (allowed < value) { return false; };
-        _addFee(from, fee);
+        _chargeFee(from, fee);
         _transfer(from, to, value - fee);
         let allowed_new : Nat = allowed - value;
         if (allowed_new != 0) {
@@ -174,13 +175,15 @@ shared(msg) actor class Token(
                 else { allowances.put(from, allowance_from); };
             };
         };
-        addRecord(from, #transfer, ?from, ?to, value, fee, Time.now());
+        addRecord(from, #transfer, from, to, value, fee, Time.now());
         return true;
     };
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
     /// If this function is called again it overwrites the current allowance with value.
     public shared(msg) func approve(spender: Principal, value: Nat) : async Bool {
+        if(_balanceOf(msg.caller) < fee) { return false; };
+        _chargeFee(msg.caller, fee);
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
             let allowance_caller = Option.unwrap(allowances.get(msg.caller));
             allowance_caller.delete(spender);
@@ -195,7 +198,7 @@ shared(msg) actor class Token(
             allowance_caller.put(spender, value);
             allowances.put(msg.caller, allowance_caller);
         };
-        addRecord(msg.caller, #approve, ?msg.caller, ?spender, value, 0, Time.now());
+        addRecord(msg.caller, #approve, msg.caller, spender, value, fee, Time.now());
         return true;
     };
 
@@ -224,7 +227,7 @@ shared(msg) actor class Token(
                 totalSupply_ += value;
             };
         };
-        addRecord(msg.caller, #mint, null, ?to, value, 0, Time.now());
+        addRecord(msg.caller, #mint, blackhole, to, value, 0, Time.now());
         return true;
     };
 
@@ -236,7 +239,7 @@ shared(msg) actor class Token(
             balances.put(from, Option.unwrap(balances.get(from)) - value);
             totalSupply_ -= value;
         } else { return false; };
-        addRecord(msg.caller, #burn, ?from, null, value, 0, Time.now());
+        addRecord(msg.caller, #burn, from, blackhole, value, 0, Time.now());
         return true;
     };
 
@@ -303,7 +306,7 @@ shared(msg) actor class Token(
     public query func getUserOpAmount(a: Principal) : async Nat {
         var res: Nat = 0;
         for (i in ops.vals()) {
-            if (i.caller == a or (Option.isSome(i.from) and Option.unwrap(i.from) == a) or (Option.isSome(i.to) and Option.unwrap(i.to) == a)) {
+            if (i.caller == a or i.from == a or i.to == a) {
                 res += 1;
             };
         };
@@ -314,7 +317,7 @@ shared(msg) actor class Token(
         var res: [OpRecord] = [];
         var index: Nat = 0;
         for (i in ops.vals()) {
-            if (i.caller == a or (Option.isSome(i.from) and Option.unwrap(i.from) == a) or (Option.isSome(i.to) and Option.unwrap(i.to) == a)) {
+            if (i.caller == a or i.from == a or i.to == a) {
                 if(index >= start and index < start + num) {
                     res := Array.append<OpRecord>(res, [i]);
                 };
@@ -328,7 +331,7 @@ shared(msg) actor class Token(
     public query func getHistoryByAccount(a: Principal) : async [OpRecord] {
         var res: [OpRecord] = [];
         for (i in ops.vals()) {
-            if (i.caller == a or (Option.isSome(i.from) and Option.unwrap(i.from) == a) or (Option.isSome(i.to) and Option.unwrap(i.to) == a)) {
+            if (i.caller == a or i.from == a or i.to == a) {
                 res := Array.append<OpRecord>(res, [i]);
             };
         };

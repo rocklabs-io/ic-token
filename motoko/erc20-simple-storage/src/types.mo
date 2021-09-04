@@ -22,8 +22,8 @@ module {
         caller: Principal;
         op: Operation;
         index: Nat;
-        from: ?Principal;
-        to: ?Principal;
+        from: Principal;
+        to: Principal;
         amount: Nat;
         fee: Nat;
         timestamp: Time.Time;
