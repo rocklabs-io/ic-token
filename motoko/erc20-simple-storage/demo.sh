@@ -44,7 +44,7 @@ echo == Install token canister
 echo
 
 HOME=$ALICE_HOME
-eval dfx canister --no-wallet install token --argument="'(\"https://api.google.com/1\", \"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'"
+eval dfx canister --no-wallet install token --argument="'(\"https://api.google.com/1\", \"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY, true, true)'"
 
 echo
 echo == Initial setting for token canister

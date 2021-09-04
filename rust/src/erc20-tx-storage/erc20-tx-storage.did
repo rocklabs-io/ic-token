@@ -8,7 +8,7 @@ type OpRecord = record {
   amount : nat64;
 };
 type Operation = variant { Approve; Burn; Init; Mint; Transfer };
-service : (text, text, nat64, nat64) -> {
+service : (text, text, nat64, nat64, principal) -> {
   all_history : () -> (vec OpRecord) query;
   allowance : (principal, principal) -> (nat64) query;
   approve : (principal, nat64) -> (bool);

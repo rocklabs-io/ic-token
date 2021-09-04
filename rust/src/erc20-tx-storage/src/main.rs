@@ -63,13 +63,13 @@ fn add_record(caller: Principal, op: Operation, from: Option<Principal>, to: Opt
 
 #[init]
 #[candid_method(init)]
-fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
+fn init(name: String, symbol: String, decimals: u64, total_supply: u64, owner: Principal) {
     unsafe {
         NAME = Box::leak(name.into_boxed_str());
         SYMBOL = Box::leak(symbol.into_boxed_str());
         DECIMALS = decimals;
         TOTALSUPPLY = total_supply;
-        OWNER = api::caller();
+        OWNER = owner;
         let balances = storage::get_mut::<Balances>();
         balances.insert(OWNER, TOTALSUPPLY);
         add_record(OWNER, Operation::Init, None, Some(OWNER), TOTALSUPPLY, api::time());
