@@ -22,7 +22,7 @@ shared(msg) actor class Token(
     _logo: Text,
     _name: Text, 
     _symbol: Text,
-    _decimals: Nat, 
+    _decimals: Nat8, 
     _totalSupply: Nat, 
     _owner: Principal, 
     _mintable: Bool, 
@@ -34,7 +34,7 @@ shared(msg) actor class Token(
         logo : Text;
         name : Text;
         symbol : Text;
-        decimals : Nat;
+        decimals : Nat8;
         totalSupply : Nat;
         mintable: Bool;
         burnable: Bool;
@@ -55,7 +55,7 @@ shared(msg) actor class Token(
     private stable var owner_ : Principal = _owner;
     private stable var logo_ : Text = _logo;
     private stable var name_ : Text = _name;
-    private stable var decimals_ : Nat = _decimals;
+    private stable var decimals_ : Nat8 = _decimals;
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat = _totalSupply;
     private stable var mintable_ : Bool = _mintable;
@@ -276,7 +276,7 @@ shared(msg) actor class Token(
         return name_;
     };
 
-    public query func decimals() : async Nat {
+    public query func decimals() : async Nat8 {
         return decimals_;
     };
 

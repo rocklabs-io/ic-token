@@ -13,11 +13,17 @@ use candid::{candid_method, CandidType};
 use std::string::String;
 use serde::Deserialize;
 
+static mut LOGO: &str = "";
 static mut NAME: &str = "";
 static mut SYMBOL: &str = "";
-static mut DECIMALS: u64 = 8;
+static mut DECIMALS: u8 = 8;
 static mut OWNER: Principal = Principal::anonymous();
 static mut TOTALSUPPLY: u64 = 0;
+static mut MINTABLE: bool = false;
+static mut BURNABLE: bool = false;
+
+static mut FEETO: Principal = Principal::anonymous();
+static mut FEE: u64 = 100000; // 0.001 for a 8 decimal token
 
 type Balances = HashMap<Principal, u64>;
 type Allowances = HashMap<Principal, HashMap<Principal, u64>>;
@@ -27,7 +33,7 @@ type Ops = Vec<OpRecord>;
 struct UpgradePayload {
     name: String,
     symbol: String,
-    decimals: u64,
+    decimals: u8,
     total_supply: u64,
     owner: Principal,
     balance: Vec<(Principal, u64)>,
@@ -43,96 +49,168 @@ enum Operation {
 struct OpRecord {
     caller: Principal,
     op: Operation,
-    index: usize,
-    from: Option<Principal>,
-    to: Option<Principal>,
+    index: u64,
+    from: Principal,
+    to: Principal,
     amount: u64,
+    fee: u64,
     timestamp: u64,
 }
 
-fn add_record(caller: Principal, op: Operation, from: Option<Principal>, to: Option<Principal>,
-    amount: u64, timestamp: u64) 
-{
-    let ops = storage::get_mut::<Ops>();
-    let index = ops.len();
-    ops.push(OpRecord{
-        caller, op, index, from, to, amount, timestamp,
-    });
+#[derive(CandidType)]
+enum TxError {
+    InsufficientBalance,
+    InsufficientAllowance,
+    Overflow,
+    Unauthorized,
+}
+type TxReceipt = Result<u64, TxError>;
+
+#[derive(CandidType)]
+pub struct Metadata {
+    pub logo: String,
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
+    pub total_supply: u64,
+    pub mintable: bool,
+    pub burnable: bool,
+    pub owner: Principal,
+    pub history_size: u64,
+    pub deploy_time: u64,
+    pub fee: u64,
+    pub fee_to: Principal,
+    pub holder_number: u64,
+    pub cycles: u64,
 }
 
+fn add_record(caller: Principal, op: Operation, from: Principal, to: Principal,
+    amount: u64, fee: u64, timestamp: u64) -> u64
+{
+    let ops = storage::get_mut::<Ops>();
+    let index: u64 = ops.len() as u64;
+    ops.push(OpRecord{
+        caller, op, index, from, to, amount, fee, timestamp,
+    });
+    index
+}
+
+// TODO: 
+// add: getMetadata, getLogo/setLogo, setFee/setFeeTo
+// try to remove mutable static and unsafe blocks, how?
 
 #[init]
 #[candid_method(init)]
-fn init(name: String, symbol: String, decimals: u64, total_supply: u64, owner: Principal) {
+fn init(
+    logo: String,
+    name: String, 
+    symbol: String, 
+    decimals: u8, 
+    total_supply: u64, 
+    owner: Principal,
+    mintable: bool,
+    burnable: bool
+    ) {
     unsafe {
+        LOGO = Box::leak(logo.into_boxed_str());
         NAME = Box::leak(name.into_boxed_str());
         SYMBOL = Box::leak(symbol.into_boxed_str());
         DECIMALS = decimals;
         TOTALSUPPLY = total_supply;
         OWNER = owner;
+        MINTABLE = mintable;
+        BURNABLE = burnable;
+        FEETO = owner;
         let balances = storage::get_mut::<Balances>();
         balances.insert(OWNER, TOTALSUPPLY);
-        add_record(OWNER, Operation::Init, None, Some(OWNER), TOTALSUPPLY, api::time());
+        let _ = add_record(OWNER, Operation::Init, Principal::from_text("aaaaa-aa").unwrap(), OWNER, TOTALSUPPLY, 0, api::time());
+    }
+}
+
+fn _transfer(from: Principal, to: Principal, value: u64) {
+    let balances = storage::get_mut::<Balances>();
+    let from_balance = balance_of(from);
+    let from_balance_new: u64 = from_balance - value;
+    if from_balance_new != 0 {
+        balances.insert(from, from_balance_new);
+    } else {
+        balances.remove(&from);
+    }
+    let to_balance = balance_of(to);
+    let to_balance_new: u64 = to_balance + value;
+    if to_balance_new != 0 {
+        balances.insert(to, to_balance_new);
+    }
+}
+
+fn _charge_fee(user: Principal, fee_to: Principal, fee: u64) {
+    unsafe {
+        if FEE > 0 {
+            _transfer(user, fee_to, fee);
+        }
     }
 }
 
 #[update(name = "transfer")]
 #[candid_method(update)]
-fn transfer(to: Principal, value: u64) -> bool {
+fn transfer(to: Principal, value: u64) -> TxReceipt {
     let from = api::caller();
     let from_balance = balance_of(from);
-    api::print(from_balance.to_string());
-    if from_balance < value {
-        false
-    } else {
-        let balances = storage::get_mut::<Balances>();
-        balances.insert(from, from_balance - value);
-        let to_balance = balance_of(to);
-        balances.insert(to, to_balance + value);
-        add_record(from, Operation::Transfer, Some(from), Some(to), value, api::time());
-        true
+    unsafe {
+        if from_balance < value || from_balance < FEE {
+            return Err(TxError::InsufficientBalance);
+        } 
     }
+    unsafe { _charge_fee(from, FEETO, FEE) };
+    _transfer(from, to, value);
+    let txid = unsafe { add_record(from, Operation::Transfer, from, to, value, FEE, api::time()) };
+    Ok(txid)
 }
 
 #[update(name = "transferFrom")]
 #[candid_method(update, rename = "transferFrom")]
-fn transfer_from(from: Principal, to: Principal, value: u64) -> bool {
+fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
     let owner = api::caller();
     let from_allowance = allowance(from, owner);
     if from_allowance < value {
-        false
+        Err(TxError::InsufficientAllowance)
     } else {
         let from_balance = balance_of(from);
-        let to_balance = balance_of(to);
-        if from_balance < value {
-            false
-        } else {
-            let balances = storage::get_mut::<Balances>();
-            balances.insert(from, from_balance - value);
-            balances.insert(to, to_balance + value);
-            let allowances_read = storage::get::<Allowances>();
-            match allowances_read.get(&from) {
-                Some(inner) => {
-                    let result = inner.get(&owner).unwrap();
-                    let mut temp = inner.clone();
-                    temp.insert(owner, result - value);
-                    let allowances = storage::get_mut::<Allowances>();
-                    allowances.insert(from, temp);
-                },
-                None => {
-                    assert!(false);
-                }
-            }
-            add_record(owner, Operation::Transfer, Some(from), Some(to), value, api::time());
-            true
+        unsafe {
+            if from_balance < value || from_balance < FEE {
+                return Err(TxError::InsufficientBalance);
+            } 
         }
+        unsafe { _charge_fee(from, FEETO, FEE); }
+        _transfer(from, to, value);
+        let allowances_read = storage::get::<Allowances>();
+        match allowances_read.get(&from) {
+            Some(inner) => {
+                let result = inner.get(&owner).unwrap();
+                let mut temp = inner.clone();
+                temp.insert(owner, result - value);
+                let allowances = storage::get_mut::<Allowances>();
+                allowances.insert(from, temp);
+            },
+            None => {
+                assert!(false);
+            }
+        }
+        let txid = unsafe { add_record(owner, Operation::Transfer, from, to, value, FEE, api::time()) };
+        Ok(txid)
     }
 }
 
 #[update(name = "approve")]
 #[candid_method(update)]
-fn approve(spender: Principal, value: u64) -> bool {
+fn approve(spender: Principal, value: u64) -> TxReceipt {
     let owner = api::caller();
+    unsafe {
+        if balance_of(owner) < FEE {
+            return Err(TxError::InsufficientBalance);
+        }
+    }
+    unsafe { _charge_fee(owner, FEETO, FEE); }
     let allowances_read = storage::get::<Allowances>();
     match allowances_read.get(&owner) {
         Some(inner) => {
@@ -148,49 +226,49 @@ fn approve(spender: Principal, value: u64) -> bool {
             allowances.insert(owner, inner);
         }
     }
-    add_record(owner, Operation::Approve, Some(owner), Some(spender), value, api::time());
-    true
+    let txid = unsafe { add_record(owner, Operation::Approve, owner, spender, value, FEE, api::time()) };
+    Ok(txid)
 }
 
 #[update(name = "mint")]
 #[candid_method(update)]
-fn mint(to: Principal, value: u64) -> bool {
-    if api::caller() != owner() {
-        false
-    } else {
-        let balance_before = balance_of(to);
-        if balance_before + value >= u64::MAX {
-            false
-        } else {
-            let balances = storage::get_mut::<Balances>();
-            balances.insert(to, balance_before + value);
-            unsafe {
-                TOTALSUPPLY += value;
-            }
-            add_record(api::caller(), Operation::Mint, None, Some(to), value, api::time());    
-            true
+fn mint(to: Principal, value: u64) -> TxReceipt {
+    unsafe {
+        if !MINTABLE || api::caller() == owner() {
+            return Err(TxError::Unauthorized);
         }
+    }
+    let balance_before = balance_of(to);
+    if balance_before + value >= u64::MAX {
+        Err(TxError::Overflow)
+    } else {
+        let balances = storage::get_mut::<Balances>();
+        balances.insert(to, balance_before + value);
+        unsafe {
+            TOTALSUPPLY += value;
+        }
+        let txid = add_record(api::caller(), Operation::Mint, Principal::from_text("aaaaa-aa").unwrap(), to, value, 0, api::time());    
+        Ok(txid)
     }
 }
 
 #[update(name = "burn")]
 #[candid_method(update)]
-fn burn(from: Principal, value: u64) -> bool {
-    if api::caller() != from || api::caller() != owner() {
-        false
-    } else {
-        let balance = balance_of(from);
-        if balance < value {
-            false
-        } else {
-            let balances = storage::get_mut::<Balances>();
-            balances.insert(from, balance - value);
-            unsafe {
-                TOTALSUPPLY -= value;
-            }
-            add_record(api::caller(), Operation::Burn, Some(from), None, value, api::time());
-            true
+fn burn(from: Principal, value: u64) -> TxReceipt {
+    unsafe {
+        if !BURNABLE || api::caller() != from || api::caller() != owner() {
+            return Err(TxError::Unauthorized);
         }
+    }
+    let balance = balance_of(from);
+    if balance < value {
+        Err(TxError::InsufficientBalance)
+    } else {
+        let balances = storage::get_mut::<Balances>();
+        balances.insert(from, balance - value);
+        unsafe { TOTALSUPPLY -= value; }
+        let txid = add_record(api::caller(), Operation::Burn, from, Principal::from_text("aaaaa-aa").unwrap(), value, 0, api::time());
+        Ok(txid)
     }
 }
 
@@ -237,7 +315,7 @@ fn symbol() -> String {
 
 #[query(name = "decimals")]
 #[candid_method(query)]
-fn decimals() -> u64 {
+fn decimals() -> u8 {
     unsafe {
         DECIMALS
     }
@@ -259,29 +337,29 @@ fn owner() -> Principal {
     }
 }
 
-#[query(name = "controller")]
-#[candid_method(query)]
-fn controller() -> Principal {
-    // TODO: get token canister controller
-    Principal::anonymous()
-}
+// #[query(name = "controller")]
+// #[candid_method(query)]
+// fn controller() -> Principal {
+//     // TODO: get token canister controller
+//     Principal::anonymous()
+// }
 
-#[query(name = "getHistoryByIndex")]
+#[query(name = "getTransaction")]
 #[candid_method(query)]
-fn get_history_by_index(index: usize) -> OpRecord {
+fn get_transaction(index: usize) -> OpRecord {
     let ops = storage::get_mut::<Ops>();
     ops[index]
 }
 
-#[query(name = "allHistory")]
+#[query(name = "allTransactions")]
 #[candid_method(query)]
-fn all_history() -> Vec<OpRecord> {
+fn all_transactions() -> Vec<OpRecord> {
     storage::get_mut::<Ops>().to_vec()
 }
 
-#[query(name = "getHistory")]
+#[query(name = "getTransactions")]
 #[candid_method(query)]
-fn get_history(start: usize, num: usize) -> Vec<OpRecord> {
+fn get_transactions(start: usize, num: usize) -> Vec<OpRecord> {
     let mut res : Vec<OpRecord> = Vec::new();
     let ops = storage::get_mut::<Ops>();
     let mut i = start;
@@ -292,14 +370,13 @@ fn get_history(start: usize, num: usize) -> Vec<OpRecord> {
     res
 }
 
-#[query(name = "getHistoryByAccount")]
+#[query(name = "getTxsByAccount")]
 #[candid_method(query)]
-fn get_history_by_account(a: Principal) -> Vec<OpRecord> {
+fn get_txs_by_account(a: Principal) -> Vec<OpRecord> {
     let ops = storage::get_mut::<Ops>();
     let mut res : Vec<OpRecord> = Vec::new();
     for i in ops {
-        if i.caller == a || i.from.unwrap_or_else(|| Principal::anonymous()) == a || 
-            i.to.unwrap_or_else(|| Principal::anonymous()) == a {
+        if i.caller == a || i.from == a || i.to == a {
             res.push(*i);
         }
     }
@@ -316,6 +393,7 @@ fn main() {
     std::print!("{}", __export_service());
 }
 
+// TODO: fix upgrade functions
 #[pre_upgrade]
 fn pre_upgrade() {
     let name = unsafe{ NAME };
