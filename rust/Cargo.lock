@@ -237,42 +237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "erc20"
-version = "0.1.0"
-dependencies = [
- "candid",
- "ic-cdk",
- "ic-cdk-macros",
- "ic-types",
- "lazy_static",
- "serde",
-]
-
-[[package]]
-name = "erc20-notify"
-version = "0.1.0"
-dependencies = [
- "candid",
- "ic-cdk",
- "ic-cdk-macros",
- "ic-types",
- "lazy_static",
- "serde",
-]
-
-[[package]]
-name = "erc20-tx-storage"
-version = "0.1.0"
-dependencies = [
- "candid",
- "ic-cdk",
- "ic-cdk-macros",
- "ic-types",
- "lazy_static",
- "serde",
-]
-
-[[package]]
 name = "fixedbitset"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -785,6 +749,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
 dependencies = [
  "crunchy",
+]
+
+[[package]]
+name = "token"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "ic-types",
+ "lazy_static",
+ "serde",
 ]
 
 [[package]]

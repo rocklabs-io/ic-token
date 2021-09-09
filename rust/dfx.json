@@ -1,14 +1,8 @@
 {
   "canisters": {
-	  "erc20": {
-		  "build": "cargo build --target wasm32-unknown-unknown --package erc20 --release",
-		  "candid": "src/erc20/token.did",
-		  "wasm": "target/wasm32-unknown-unknown/release/erc20_opt.wasm",
-		  "type": "custom"
-	  },
 	  "token": {
-		  "build": "cargo build --target wasm32-unknown-unknown --package erc20-tx-storage --release",
-		  "candid": "src/erc20-tx-storage/erc20-tx-storage.did",
+		  "build": "cargo build --target wasm32-unknown-unknown --release",
+		  "candid": "token.did",
 		  "wasm": "target/wasm32-unknown-unknown/release/opt.wasm",
 		  "type": "custom"
 	  }
