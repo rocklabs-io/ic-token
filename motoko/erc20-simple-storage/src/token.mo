@@ -15,6 +15,7 @@ import Array "mo:base/Array";
 import Option "mo:base/Option";
 import Order "mo:base/Order";
 import Nat "mo:base/Nat";
+import Result "mo:base/Result";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 
 shared(msg) actor class Token(
@@ -45,6 +46,11 @@ shared(msg) actor class Token(
         holderNumber : Nat;
         cycles : Nat;
     };
+    // returns tx index or error msg
+    type TxReceipt = Result.Result<Nat, {
+        #InsufficientBalance;
+        #InsufficientAllowance;
+    }>;
 
     private stable var owner_ : Principal = _owner;
     private stable var logo_ : Text = _logo;
@@ -77,7 +83,7 @@ shared(msg) actor class Token(
     private func addRecord(
         caller: Principal, op: Operation, from: Principal, to: Principal, amount: Nat,
         fee: Nat, timestamp: Time.Time
-    ) {
+    ): Nat {
         let index = ops.size();
         let o : OpRecord = {
             caller = caller;
@@ -90,6 +96,7 @@ shared(msg) actor class Token(
             timestamp = timestamp;
         };
         ops := Array.append(ops, [o]);
+        return index;
     };
 
     private func _chargeFee(from: Principal, fee: Nat) {
@@ -147,21 +154,23 @@ shared(msg) actor class Token(
     };
 
     /// Transfers value amount of tokens to Principal to.
-    public shared(msg) func transfer(to: Principal, value: Nat) : async Bool {
-        if (value < fee) { return false; };
-        if (_balanceOf(msg.caller) < value) { return false; };
+    public shared(msg) func transfer(to: Principal, value: Nat) : async TxReceipt {
+        if (value < fee or _balanceOf(msg.caller) < value) {
+            return #err(#InsufficientBalance);
+        };
         _chargeFee(msg.caller, fee);
         _transfer(msg.caller, to, value - fee);
-        addRecord(msg.caller, #transfer, msg.caller, to, value, fee, Time.now());
-        return true;
+        let txid = addRecord(msg.caller, #transfer, msg.caller, to, value, fee, Time.now());
+        return #ok(txid);
     };
 
     /// Transfers value amount of tokens from Principal from to Principal to.
-    public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat) : async Bool {
-        if (value < fee) { return false; };
-        if (_balanceOf(from) < value) { return false; };
+    public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat) : async TxReceipt {
+        if (value < fee or _balanceOf(from) < value) {
+            return #err(#InsufficientBalance);
+        };
         let allowed : Nat = _allowance(from, msg.caller);
-        if (allowed < value) { return false; };
+        if (allowed < value) { return #err(#InsufficientAllowance); };
         _chargeFee(from, fee);
         _transfer(from, to, value - fee);
         let allowed_new : Nat = allowed - value;
@@ -177,14 +186,14 @@ shared(msg) actor class Token(
                 else { allowances.put(from, allowance_from); };
             };
         };
-        addRecord(from, #transfer, from, to, value, fee, Time.now());
-        return true;
+        let txid = addRecord(from, #transfer, from, to, value, fee, Time.now());
+        return #ok(txid);
     };
 
     /// Allows spender to withdraw from your account multiple times, up to the value amount. 
     /// If this function is called again it overwrites the current allowance with value.
-    public shared(msg) func approve(spender: Principal, value: Nat) : async Bool {
-        if(_balanceOf(msg.caller) < fee) { return false; };
+    public shared(msg) func approve(spender: Principal, value: Nat) : async TxReceipt {
+        if(_balanceOf(msg.caller) < fee) { return #err(#InsufficientBalance); };
         _chargeFee(msg.caller, fee);
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
             let allowance_caller = Option.unwrap(allowances.get(msg.caller));
@@ -200,8 +209,8 @@ shared(msg) actor class Token(
             allowance_caller.put(spender, value);
             allowances.put(msg.caller, allowance_caller);
         };
-        addRecord(msg.caller, #approve, msg.caller, spender, value, fee, Time.now());
-        return true;
+        let txid = addRecord(msg.caller, #approve, msg.caller, spender, value, fee, Time.now());
+        return #ok(txid);
     };
 
     public shared(msg) func setMintable(v: Bool): async Bool {
@@ -217,7 +226,7 @@ shared(msg) actor class Token(
     };
 
     /// Creates value tokens and assigns them to Principal to, increasing the total supply.
-    public shared(msg) func mint(to: Principal, value: Nat): async Bool {
+    public shared(msg) func mint(to: Principal, value: Nat): async TxReceipt {
         assert(mintable_);
         assert(msg.caller == owner_);
         if (Option.isSome(balances.get(to))) {
@@ -229,22 +238,22 @@ shared(msg) actor class Token(
                 totalSupply_ += value;
             };
         };
-        addRecord(msg.caller, #mint, blackhole, to, value, 0, Time.now());
-        return true;
+        let txid = addRecord(msg.caller, #mint, blackhole, to, value, 0, Time.now());
+        return #ok(txid);
     };
 
-    public shared(msg) func burn(from: Principal, value: Nat): async Bool {
+    public shared(msg) func burn(from: Principal, value: Nat): async TxReceipt {
         assert(burnable_);
         assert(msg.caller == owner_ or msg.caller == from);
         if (Option.isSome(balances.get(from))) {
             let balance_from = _balanceOf(from);
-            if (balance_from < value) { return false; }
+            if (balance_from < value) { return #err(#InsufficientBalance); }
             else if (balance_from == value) { balances.delete(from); }
             else { balances.put(from, balance_from - value); };
             totalSupply_ -= value;
-        } else { return false; };
-        addRecord(msg.caller, #burn, from, blackhole, value, 0, Time.now());
-        return true;
+        } else { return #err(#InsufficientBalance); };
+        let txid = addRecord(msg.caller, #burn, from, blackhole, value, 0, Time.now());
+        return #ok(txid);
     };
 
     public query func balanceOf(who: Principal) : async Nat {
@@ -291,13 +300,13 @@ shared(msg) actor class Token(
         return balances.size();
     };
 
-    /// Get History by index.
-    public query func getHistoryByIndex(index: Nat) : async OpRecord {
+    /// Get transaction by index.
+    public query func getTransaction(index: Nat) : async OpRecord {
         return ops[index];
     };
 
     /// Get history
-    public query func getHistory(start: Nat, num: Nat) : async [OpRecord] {
+    public query func getTransactions(start: Nat, num: Nat) : async [OpRecord] {
         var ret: [OpRecord] = [];
         var i = start;
         while(i < start + num and i < ops.size()) {
@@ -307,7 +316,7 @@ shared(msg) actor class Token(
         return ret;
     };
 
-    public query func getUserOpAmount(a: Principal) : async Nat {
+    public query func getUserTxAmount(a: Principal) : async Nat {
         var res: Nat = 0;
         for (i in ops.vals()) {
             if (i.caller == a or i.from == a or i.to == a) {
@@ -317,7 +326,7 @@ shared(msg) actor class Token(
         return res;
     };
 
-    public query func getUserHistory(a: Principal, start: Nat, num: Nat) : async [OpRecord] {
+    public query func getUserTxs(a: Principal, start: Nat, num: Nat) : async [OpRecord] {
         var res: [OpRecord] = [];
         var index: Nat = 0;
         for (i in ops.vals()) {
@@ -332,7 +341,7 @@ shared(msg) actor class Token(
     };
 
     /// Get history by account.
-    public query func getHistoryByAccount(a: Principal) : async [OpRecord] {
+    public query func getTxsByAccount(a: Principal) : async [OpRecord] {
         var res: [OpRecord] = [];
         for (i in ops.vals()) {
             if (i.caller == a or i.from == a or i.to == a) {
@@ -343,7 +352,7 @@ shared(msg) actor class Token(
     };
     
     /// Get all update call history.
-    public query func allHistory() : async [OpRecord] {
+    public query func allTransactions() : async [OpRecord] {
         return ops;
     };
 
