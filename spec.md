@@ -16,64 +16,53 @@ A standard token interface is a basic building block for many applications on th
 
    ```js
    type Metadata = {
-   	logo : Text; // base64 encoded logo or logo url
-   	name : Text; // token name
-   	symbol : Text; // token symbol
-   	decimals : Nat8; // token decimal
-   	totalSupply : Nat; // token total supply
-   	owner : Principal; // token owner
-   	fee : Nat; // fee for update calls
-   	feeTo : Principal; // fee receiver
+       logo : Text; // base64 encoded logo or logo url
+       name : Text; // token name
+       symbol : Text; // token symbol
+       decimals : Nat8; // token decimal
+       totalSupply : Nat; // token total supply
+       owner : Principal; // token owner
+       fee : Nat; // fee for update calls
    }
    ```
 
-2. Status: token status info
-
-   ```js
-   type Status = {
-   	historySize : Nat; // total number of history transactions
-   	deployTime: Time.Time; // token canister deploy time in nanoseconds
-   	holderNumber : Nat; // token holder number
-   	cycles : Nat; // token canister cycles balance
-   }
-   ```
-
-3. TxReceipt: receipt for update calls, contains the transaction index or an error message
+2. TxReceipt: receipt for update calls, contains the transaction index or an error message
 
    ```js
    type TxReceipt = Result.Result<Nat, {
-   	#InsufficientBalance;
-   	#InsufficientAllowance;
+       #InsufficientBalance;
+       #InsufficientAllowance;
    }>;
-   ```
 
-4. TxRecord: history transaction record
+3. TxRecord: history transaction record
 
    ```js
    public type Operation = {
-   	#mint;
-   	#burn;
-   	#transfer;
-   	#approve;
-   	#init;
+       #approve;
+       #mint;
+       #transfer;
+       #transferFrom;
    };
    public type TxRecord = {
-   	caller: Principal; // caller of the transaction
-   	op: Operation; // operation type
-   	index: Nat; // transaction index
-   	from: Principal;
-   	to: Principal;
-   	amount: Nat;
-   	fee: Nat;
-   	timestamp: Time.Time;
+       caller: Principal?;
+       op: Operation; // operation type
+       index: Nat; // transaction index
+       from: Principal;
+       to: Principal;
+       amount: Nat;
+       fee: Nat;
+       timestamp: Time.Time;
    };
    ```
+
+   `caller` in TxRecord is optional and only need to be non-empty for `transferFrom` calls
 
 ### 2. Basic Interfaces
 
 #### Update calls
 
-The update calls described in this section will be charged `fee` amount of tokens to prevent DDoS attack, this is necessary because of the reverse gas model of the IC.
+The update calls described in this section might choose to charge `fee` amount of tokens to prevent DDoS attack, this is necessary because of the reverse gas model of the IC.
+All update functions are allowed to trap, instead of returning an error in order to take advantage of the canisters automatic, atomic state rollback.
 
 ##### transfer
 
@@ -165,14 +154,6 @@ Returns the metadata of the token.
 public query func getMetadata() : async Metadata
 ```
 
-##### getStatus
-
-Returns the status of the token.
-
-```js
-public query func getStatus() : async Status
-```
-
 The following functions are used for query of history transaction records.
 
 ##### getTransaction
@@ -185,28 +166,20 @@ public query func getTransaction(index: Nat) : async TxRecord
 
 ##### getTransactions
 
-Returns an array of transaction records in the range `[start, start + limit)`.
+Returns an array of transaction records in the range `[start, start + limit)`. Implementations are allowed to return
+less TxRecords than requested to fend off DoS attacks.
 
 ```js
 public query func getTransactions(start: Nat, limit: Nat) : async [TxRecord]
 ```
 
-##### getUserTransactionAmount
+##### historySize
 
-Returns total number of transactions related to the user `who`.
-
-```js
-public query func getUserTransactionAmount(who: Principal) : async Nat
-```
-
-##### getUserTransactions
-
-Returns an array of transaction records in range `[start, start + limit)` related to user `who` . 
+Returns the history size.
 
 ```js
-public query func getUserTransactions(who: Principal, start: Nat, limit: Nat) : async [TxRecord]
+public query func historySize() : async Nat
 ```
-
 
 
 ### 3. Optional interfaces
@@ -265,9 +238,23 @@ Set the owner of the token to `newOwner`, no return value needed.
 public shared(msg) func setOwner(newOwner: Principal)
 ```
 
+##### getUserTransactions
 
+Returns an array of transaction records in range `[start, start + limit)` related to user `who` . Unlike `getTransactions`
+function, the range [start, start + limit) for getUserTransactions is not the global range of all transactions.
+The range [start, start + limit) here pertains to the transactions of user `who`.
+Implementations are allowed to return less TxRecords than requested to fend off DoS attacks.
+
+```js
+public query func getUserTransactions(who: Principal, start: Nat, limit: Nat) : async [TxRecord]
+```
+
+##### getUserTransactionAmount
+
+Returns total number of transactions related to the user `who`.
+
+```js
+public query func getUserTransactionAmount(who: Principal) : async Nat
+```
 
 ### 4. Change log
-
-
-
