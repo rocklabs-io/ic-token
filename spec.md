@@ -87,7 +87,7 @@ public shared(msg) func transfer(to: Principal, value: Nat) : async TxReceipt
 
 Transfers `value` amount of tokens from user `from` to user `to`, this method allows canster smart contracts to transfer tokens on your behalf, it returns a `TxReceipt` which contains the transaction index or an error message.
 
-```
+```js
 public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat) : async TxReceipt
 ```
 
@@ -95,7 +95,7 @@ public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat)
 
 Allows `spender` to withdraw tokens from your account, up to the `value` amount. If it is called again it overwrites the current allowance with `value`. There is no upper limit for `value`.
 
-```
+```js
 public shared(msg) func approve(spender: Principal, value: Nat) : async TxReceipt
 ```
 
@@ -105,7 +105,7 @@ public shared(msg) func approve(spender: Principal, value: Nat) : async TxReceip
 
 Returns the logo of the token.
 
-```
+```js
 public query func logo() : async Text
 ```
 
@@ -113,7 +113,7 @@ public query func logo() : async Text
 
 Returns the name of the token.
 
-```
+```js
 public query func name() : async Text
 ```
 
@@ -121,7 +121,7 @@ public query func name() : async Text
 
 Returns the symbol of the token.
 
-```
+```js
 public query func symbol() : async Text
 ```
 
@@ -129,7 +129,7 @@ public query func symbol() : async Text
 
 Returns the decimals of the token.
 
-```
+```js
 public query func decimals() : async Nat8
 ```
 
@@ -137,7 +137,7 @@ public query func decimals() : async Nat8
 
 Returns the total supply of the token.
 
-```
+```js
 public query func totalSupply() : async Nat
 ```
 
@@ -145,7 +145,7 @@ public query func totalSupply() : async Nat
 
 Returns the balance of user `who`.
 
-```
+```js
 public query func balanceOf(who: Principal) : async Nat
 ```
 
@@ -153,7 +153,7 @@ public query func balanceOf(who: Principal) : async Nat
 
 Returns the amount which `spender` is still allowed to withdraw from `owner`.
 
-```
+```js
 public query func allowance(owner: Principal, spender: Principal) : async Nat
 ```
 
@@ -161,7 +161,7 @@ public query func allowance(owner: Principal, spender: Principal) : async Nat
 
 Returns the metadata of the token.
 
-```
+```js
 public query func getMetadata() : async Metadata
 ```
 
@@ -169,7 +169,7 @@ public query func getMetadata() : async Metadata
 
 Returns the status of the token.
 
-```
+```js
 public query func getStatus() : async Status
 ```
 
@@ -179,7 +179,7 @@ The following functions are used for query of history transaction records.
 
 Returns transaction detail of the transaction identified by `index`.
 
-```
+```js
 public query func getTransaction(index: Nat) : async TxRecord
 ```
 
@@ -187,7 +187,7 @@ public query func getTransaction(index: Nat) : async TxRecord
 
 Returns an array of transaction records in the range `[start, start + limit)`.
 
-```
+```js
 public query func getTransactions(start: Nat, limit: Nat) : async [TxRecord]
 ```
 
@@ -195,7 +195,7 @@ public query func getTransactions(start: Nat, limit: Nat) : async [TxRecord]
 
 Returns total number of transactions related to the user `who`.
 
-```
+```js
 public query func getUserTransactionAmount(who: Principal) : async Nat
 ```
 
@@ -203,7 +203,7 @@ public query func getUserTransactionAmount(who: Principal) : async Nat
 
 Returns an array of transaction records in range `[start, start + limit)` related to user `who` . 
 
-```
+```js
 public query func getUserTransactions(who: Principal, start: Nat, limit: Nat) : async [TxRecord]
 ```
 
@@ -219,7 +219,7 @@ The following update calls should be authorized, only the `owner` of the token c
 
 Mint `value` number of new tokens to user `to`, this will increase the token total supply, only `owner` is allowed to mint new tokens.
 
-```
+```js
 public shared(msg) func mint(to: Principal, value: Nat): async TxReceipt
 ```
 
@@ -227,7 +227,7 @@ public shared(msg) func mint(to: Principal, value: Nat): async TxReceipt
 
 Burn `value` number of new tokens from user `from`, this will decrease the token total supply, only `owner` or the user `from` him/herself can perform this operation.
 
-```
+```js
 public shared(msg) func burn(from: Principal, value: Nat): async TxReceipt
 ```
 
@@ -237,7 +237,7 @@ public shared(msg) func burn(from: Principal, value: Nat): async TxReceipt
 
 Change the logo of the token, no return value needed. The `logo` can either be a base64 encoded text of the logo picture or an URL pointing to the logo picture.
 
-```
+```js
 public shared(msg) func setLogo(logo: Text)
 ```
 
@@ -245,7 +245,7 @@ public shared(msg) func setLogo(logo: Text)
 
 Set fee to `newFee` for update calls(`approve`, `transfer`, `transferFrom`), no return value needed.
 
-```
+```javascript
 public shared(msg) func setFee(newFee: Nat)
 ```
 
@@ -253,7 +253,7 @@ public shared(msg) func setFee(newFee: Nat)
 
 Set fee receiver to `newFeeTo` , no return value needed.
 
-```
+```javascript
 public shared(msg) func setFeeTo(newFeeTo: Principal)
 ```
 
@@ -261,7 +261,7 @@ public shared(msg) func setFeeTo(newFeeTo: Principal)
 
 Set the owner of the token to `newOwner`, no return value needed.
 
-```
+```javascript
 public shared(msg) func setOwner(newOwner: Principal)
 ```
 
