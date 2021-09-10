@@ -5,46 +5,54 @@
  * Maintainer : DFinance Team <hello@dfinance.ai>
  * Stability  : Experimental
  */
-
-use ic_cdk::{export::Principal, storage, api};
+use candid::{candid_method, CandidType, Deserialize};
+use ic_cdk::{api, export::Principal, storage};
 use ic_cdk_macros::*;
 use std::collections::HashMap;
-use candid::{candid_method, CandidType};
 use std::string::String;
-use serde::Deserialize;
 
-static mut NAME: &str = "";
-static mut SYMBOL: &str = "";
-static mut DECIMALS: u64 = 8;
-static mut OWNER: Principal = Principal::anonymous();
-static mut TOTALSUPPLY: u64 = 0;
+#[derive(Deserialize, CandidType, Clone)]
+pub struct Metadata {
+    name: String,
+    symbol: String,
+    decimals: u8,
+    total_supply: u64,
+    owner: Principal,
+}
+
+impl Default for Metadata {
+    fn default() -> Self {
+        Metadata {
+            name: "".to_string(),
+            symbol: "".to_string(),
+            decimals: 0u8,
+            total_supply: 0u64,
+            owner: Principal::anonymous(),
+        }
+    }
+}
 
 type Balances = HashMap<Principal, u64>;
 type Allowances = HashMap<Principal, HashMap<Principal, u64>>;
 
 #[derive(Deserialize, CandidType)]
 struct UpgradePayload {
-    name: String,
-    symbol: String,
-    decimals: u64,
-    total_supply: u64,
-    owner: Principal,
+    metadata: Metadata,
     balance: Vec<(Principal, u64)>,
     allow: Vec<(Principal, Vec<(Principal, u64)>)>,
 }
 
 #[init]
 #[candid_method(init)]
-fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
-    unsafe {
-        NAME = Box::leak(name.into_boxed_str());
-        SYMBOL = Box::leak(symbol.into_boxed_str());
-        DECIMALS = decimals;
-        TOTALSUPPLY = total_supply;
-        OWNER = api::caller();
-        let balances = storage::get_mut::<Balances>();
-        balances.insert(OWNER, TOTALSUPPLY);
-    }
+fn init(name: String, symbol: String, decimals: u8, total_supply: u64) {
+    let metadata = storage::get_mut::<Metadata>();
+    metadata.name = name;
+    metadata.symbol = symbol;
+    metadata.decimals = decimals;
+    metadata.total_supply = total_supply;
+    metadata.owner = api::caller();
+    let balances = storage::get_mut::<Balances>();
+    balances.insert(metadata.owner, metadata.total_supply);
 }
 
 #[update(name = "transfer")]
@@ -91,7 +99,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> bool {
                     temp.insert(owner, result - value);
                     let allowances = storage::get_mut::<Allowances>();
                     allowances.insert(from, temp);
-                },
+                }
                 None => {
                     assert!(false);
                 }
@@ -112,7 +120,7 @@ fn approve(spender: Principal, value: u64) -> bool {
             temp.insert(spender, value);
             let allowances = storage::get_mut::<Allowances>();
             allowances.insert(owner, temp);
-        },
+        }
         None => {
             let mut inner = HashMap::new();
             inner.insert(spender, value);
@@ -126,7 +134,8 @@ fn approve(spender: Principal, value: u64) -> bool {
 #[update(name = "mint")]
 #[candid_method(update)]
 fn mint(to: Principal, value: u64) -> bool {
-    if api::caller() != to {
+    let metadata = storage::get_mut::<Metadata>();
+    if api::caller() != metadata.owner {
         false
     } else {
         let balance_before = balance_of(to);
@@ -135,9 +144,7 @@ fn mint(to: Principal, value: u64) -> bool {
         } else {
             let balances = storage::get_mut::<Balances>();
             balances.insert(to, balance_before + value);
-            unsafe {
-                TOTALSUPPLY += value;
-            }
+            metadata.total_supply += value;
             true
         }
     }
@@ -146,7 +153,9 @@ fn mint(to: Principal, value: u64) -> bool {
 #[update(name = "burn")]
 #[candid_method(update)]
 fn burn(from: Principal, value: u64) -> bool {
-    if api::caller() != from || api::caller() != owner() {
+    let metadata = storage::get_mut::<Metadata>();
+
+    if api::caller() != from || api::caller() != metadata.owner {
         false
     } else {
         let balance = balance_of(from);
@@ -155,9 +164,7 @@ fn burn(from: Principal, value: u64) -> bool {
         } else {
             let balances = storage::get_mut::<Balances>();
             balances.insert(from, balance - value);
-            unsafe {
-                TOTALSUPPLY -= value;
-            }
+            metadata.total_supply -= value;
             true
         }
     }
@@ -178,11 +185,9 @@ fn balance_of(id: Principal) -> u64 {
 fn allowance(owner: Principal, spender: Principal) -> u64 {
     let allowances = storage::get::<Allowances>();
     match allowances.get(&owner) {
-        Some(inner) => {
-            match inner.get(&spender) {
-                Some(value) => *value,
-                None => 0,
-            }
+        Some(inner) => match inner.get(&spender) {
+            Some(value) => *value,
+            None => 0,
         },
         None => 0,
     }
@@ -191,49 +196,44 @@ fn allowance(owner: Principal, spender: Principal) -> u64 {
 #[query(name = "name")]
 #[candid_method(query)]
 fn name() -> String {
-    unsafe {
-        NAME.to_string()
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.name.clone()
 }
 
 #[query(name = "symbol")]
 #[candid_method(query)]
 fn symbol() -> String {
-    unsafe {
-        SYMBOL.to_string()
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.symbol.clone()
 }
 
 #[query(name = "decimals")]
 #[candid_method(query)]
-fn decimals() -> u64 {
-    unsafe {
-        DECIMALS
-    }
+fn decimals() -> u8 {
+    let metadata = storage::get::<Metadata>();
+    metadata.decimals
 }
 
 #[query(name = "totalSupply")]
 #[candid_method(query, rename = "totalSupply")]
 fn total_supply() -> u64 {
-    unsafe {
-        TOTALSUPPLY
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.total_supply
 }
 
 #[query(name = "owner")]
 #[candid_method(query)]
 fn owner() -> Principal {
-    unsafe {
-        OWNER
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.owner
 }
 
-#[query(name = "controller")]
-#[candid_method(query)]
-fn controller() -> Principal {
-    // TODO: get token canister controller
-    Principal::anonymous()
-}
+// #[query(name = "controller")]
+// #[candid_method(query)]
+// fn controller() -> Principal {
+//     // TODO: get token canister controller
+//     Principal::anonymous()
+// }
 
 #[cfg(any(target_arch = "wasm32", test))]
 fn main() {}
@@ -246,11 +246,7 @@ fn main() {
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    let name = unsafe{ NAME };
-    let symbol = unsafe{ SYMBOL };
-    let decimals = unsafe{ DECIMALS };
-    let total_supply = unsafe{ TOTALSUPPLY };
-    let owner = unsafe{ OWNER };
+    let metadata = storage::get::<Metadata>().clone();
     let mut balance = Vec::new();
     let mut allow = Vec::new();
     for (k, v) in storage::get_mut::<Balances>().iter() {
@@ -263,26 +259,22 @@ fn pre_upgrade() {
         }
         allow.push((*k, item));
     }
-    let name = name.to_string();
-    let symbol = symbol.to_string();
+
     let up = UpgradePayload {
-        name, symbol, decimals, total_supply, owner, balance, allow,
+        metadata,
+        balance,
+        allow,
     };
-    storage::stable_save((up, )).unwrap();
+    storage::stable_save((up,)).unwrap();
 }
 
 #[post_upgrade]
 fn post_upgrade() {
     // There can only be one value in stable memory, currently. otherwise, lifetime error.
     // https://docs.rs/ic-cdk/0.3.0/ic_cdk/storage/fn.stable_restore.html
-    let (down, ) : (UpgradePayload, ) = storage::stable_restore().unwrap();
-    unsafe {
-        NAME = Box::leak(down.name.into_boxed_str());
-        SYMBOL = Box::leak(down.symbol.into_boxed_str());
-        DECIMALS = down.decimals;
-        TOTALSUPPLY = down.total_supply;
-        OWNER = down.owner;
-    }
+    let (down,): (UpgradePayload,) = storage::stable_restore().unwrap();
+    let metadata = storage::get_mut::<Metadata>();
+    *metadata = down.metadata;
     for (k, v) in down.balance {
         storage::get_mut::<Balances>().insert(k, v);
     }

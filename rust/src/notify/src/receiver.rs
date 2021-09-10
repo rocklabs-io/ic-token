@@ -1,4 +1,3 @@
-use candid::Principal;
 use ic_cdk_macros::*;
 
 use crate::TransactionNotification;

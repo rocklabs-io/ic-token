@@ -9,31 +9,46 @@ use ic_cdk::api;
 use ic_cdk::export::Principal;
 use ic_cdk::storage;
 use ic_cdk_macros::*;
-use std::{collections::HashMap, convert::TryFrom};
+use std::{collections::HashMap};
+use candid::{CandidType, Deserialize};
 
 use crate::is_authenticating;
 
 use super::TransactionNotification;
 
-static mut NAME: &str = "";
-static mut SYMBOL: &str = "";
-static mut DECIMALS: u64 = 8;
-static mut OWNER: Principal = Principal::anonymous();
-static mut TOTALSUPPLY: u64 = 0;
+#[derive(Deserialize, CandidType, Clone)]
+pub struct Metadata {
+    name: String,
+    symbol: String,
+    decimals: u8,
+    total_supply: u64,
+    owner: Principal,
+}
+
+impl Default for Metadata {
+    fn default() -> Self {
+        Metadata {
+            name: "".to_string(),
+            symbol: "".to_string(),
+            decimals: 0u8,
+            total_supply: 0u64,
+            owner: Principal::anonymous(),
+        }
+    }
+}
 
 type Balances = HashMap<Principal, u64>;
 
 #[init]
-fn init(name: String, symbol: String, decimals: u64, total_supply: u64) {
-    unsafe {
-        NAME = Box::leak(name.into_boxed_str());
-        SYMBOL = Box::leak(symbol.into_boxed_str());
-        DECIMALS = decimals;
-        TOTALSUPPLY = total_supply;
-        OWNER = api::caller();
-        let balances = storage::get_mut::<Balances>();
-        balances.insert(OWNER, TOTALSUPPLY);
-    }
+fn init(name: String, symbol: String, decimals: u8, total_supply: u64) {
+    let metadata = storage::get_mut::<Metadata>();
+    metadata.name = name;
+    metadata.symbol = symbol;
+    metadata.decimals = decimals;
+    metadata.total_supply = total_supply;
+    metadata.owner = api::caller();
+    let balances = storage::get_mut::<Balances>();
+    balances.insert(metadata.owner, total_supply);
 }
 
 #[update(name = "transfer")]
@@ -91,7 +106,9 @@ pub async fn transfer(to: Principal, value: u64) -> bool {
 }
 #[update(name = "mint")]
 fn mint(to: Principal, value: u64) -> bool {
-    if api::caller() != to {
+    let metadata = storage::get_mut::<Metadata>();
+
+    if api::caller() != metadata.owner {
         false
     } else {
         let balance_before = balance_of(to);
@@ -100,9 +117,7 @@ fn mint(to: Principal, value: u64) -> bool {
         } else {
             let balances = storage::get_mut::<Balances>();
             balances.insert(to, balance_before + value);
-            unsafe {
-                TOTALSUPPLY += value;
-            }
+            metadata.total_supply += value;
             true
         }
     }
@@ -110,6 +125,8 @@ fn mint(to: Principal, value: u64) -> bool {
 
 #[update(name = "burn")]
 fn burn(from: Principal, value: u64) -> bool {
+    let metadata = storage::get_mut::<Metadata>();
+
     if api::caller() != from || api::caller() != owner() {
         false
     } else {
@@ -119,9 +136,7 @@ fn burn(from: Principal, value: u64) -> bool {
         } else {
             let balances = storage::get_mut::<Balances>();
             balances.insert(from, balance - value);
-            unsafe {
-                TOTALSUPPLY -= value;
-            }
+            metadata.total_supply -= value;
             true
         }
     }
@@ -138,31 +153,36 @@ fn balance_of(id: Principal) -> u64 {
 
 #[query(name = "name")]
 fn name() -> String {
-    unsafe { NAME.to_string() }
+    let metadata = storage::get::<Metadata>();
+    metadata.name.clone()
 }
 
 #[query(name = "symbol")]
 fn symbol() -> String {
-    unsafe { SYMBOL.to_string() }
+    let metadata = storage::get::<Metadata>();
+    metadata.symbol.clone()
 }
 
 #[query(name = "decimals")]
-fn decimals() -> u64 {
-    unsafe { DECIMALS }
+fn decimals() -> u8 {
+    let metadata = storage::get::<Metadata>();
+    metadata.decimals
 }
 
 #[query(name = "totalSupply")]
 fn total_supply() -> u64 {
-    unsafe { TOTALSUPPLY }
+    let metadata = storage::get::<Metadata>();
+    metadata.total_supply
 }
 
 #[query(name = "owner")]
 fn owner() -> Principal {
-    unsafe { OWNER }
+    let metadata = storage::get::<Metadata>();
+    metadata.owner
 }
 
-#[query(name = "controller")]
-fn controller() -> Principal {
-    // TODO: get token canister controller
-    Principal::anonymous()
-}
+// #[query(name = "controller")]
+// fn controller() -> Principal {
+//     // TODO: get token canister controller
+//     Principal::anonymous()
+// }

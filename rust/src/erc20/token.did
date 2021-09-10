@@ -1,10 +1,9 @@
-service : (text, text, nat64, nat64) -> {
+service : (text, text, nat8, nat64) -> {
   allowance : (principal, principal) -> (nat64) query;
   approve : (principal, nat64) -> (bool);
   balanceOf : (principal) -> (nat64) query;
   burn : (principal, nat64) -> (bool);
-  controller : () -> (principal) query;
-  decimals : () -> (nat64) query;
+  decimals : () -> (nat8) query;
   mint : (principal, nat64) -> (bool);
   name : () -> (text) query;
   owner : () -> (principal) query;
