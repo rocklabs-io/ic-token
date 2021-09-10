@@ -14,7 +14,7 @@ A standard token interface is a basic building block for many applications on th
 
 1. Metadata: basic token information
 
-   ```
+   ```js
    type Metadata = {
    	logo : Text; // base64 encoded logo or logo url
    	name : Text; // token name
@@ -29,7 +29,7 @@ A standard token interface is a basic building block for many applications on th
 
 2. Status: token status info
 
-   ```
+   ```js
    type Status = {
    	historySize : Nat; // total number of history transactions
    	deployTime: Time.Time; // token canister deploy time in nanoseconds
@@ -40,7 +40,7 @@ A standard token interface is a basic building block for many applications on th
 
 3. TxReceipt: receipt for update calls, contains the transaction index or an error message
 
-   ```
+   ```js
    type TxReceipt = Result.Result<Nat, {
    	#InsufficientBalance;
    	#InsufficientAllowance;
@@ -49,7 +49,7 @@ A standard token interface is a basic building block for many applications on th
 
 4. TxRecord: history transaction record
 
-   ```
+   ```js
    public type Operation = {
    	#mint;
    	#burn;
