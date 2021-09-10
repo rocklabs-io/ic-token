@@ -2,6 +2,8 @@
 
 Token standard is essential for the Internet Computer ecosystem, especially for the decentralized finance(DeFi) system. We implemented an ERC-20 style token standard in both Motoko and Rust.
 
+You can find the interface descriptions in the [specification file](./spec.md).
+
 [This branch](https://github.com/dfinance-tech/ic-token/tree/templates) contains code of several other token canister templates.
 
 
