@@ -9,9 +9,8 @@
 use ic_cdk::{export::Principal, storage, api};
 use ic_cdk_macros::*;
 use std::collections::HashMap;
-use candid::{candid_method, CandidType};
+use candid::{candid_method, CandidType, Deserialize};
 use std::string::String;
-use serde::Deserialize;
 
 #[derive(Deserialize, CandidType, Clone)]
 pub struct Metadata {
