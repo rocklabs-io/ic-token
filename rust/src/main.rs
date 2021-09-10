@@ -275,6 +275,36 @@ fn burn(from: Principal, value: u64) -> TxReceipt {
     }
 }
 
+#[update(name = "setLogo")]
+#[candid_method(update, rename = "setLogo")]
+fn set_logo(logo: String) -> bool {
+    let metadata = storage::get_mut::<Metadata>();
+    metadata.logo = logo;
+    return true;
+}
+
+#[update(name = "setFee")]
+#[candid_method(update, rename = "setFee")]
+fn set_fee(fee: u64) -> bool {
+    let metadata = storage::get_mut::<Metadata>();
+    if api::caller() != metadata.owner {
+        return false;
+    }
+    metadata.fee = fee;
+    return true;
+}
+
+#[update(name = "setFeeTo")]
+#[candid_method(update, rename = "setFeeTo")]
+fn set_fee_to(fee_to: Principal) -> bool {
+    let metadata = storage::get_mut::<Metadata>();
+    if api::caller() != owner() {
+        return false;
+    }
+    metadata.fee_to = fee_to;
+    return true;
+}
+
 #[query(name = "balanceOf")]
 #[candid_method(query, rename = "balanceOf")]
 fn balance_of(id: Principal) -> u64 {
@@ -410,36 +440,6 @@ fn get_meta_info() -> MetaInfo {
 fn get_logo() -> String {
     let metadata = storage::get::<Metadata>();
     metadata.logo.clone()
-}
-
-#[query(name = "setLogo")]
-#[candid_method(query, rename = "setLogo")]
-fn set_logo(logo: String) -> bool {
-    let metadata = storage::get_mut::<Metadata>();
-    metadata.logo = logo;
-    return true;
-}
-
-#[query(name = "setFee")]
-#[candid_method(query, rename = "setFee")]
-fn set_fee(fee: u64) -> bool {
-    let metadata = storage::get_mut::<Metadata>();
-    if api::caller() != metadata.owner {
-        return false;
-    }
-    metadata.fee = fee;
-    return true;
-}
-
-#[query(name = "setFeeTo")]
-#[candid_method(query, rename = "setFeeTo")]
-fn set_fee_to(fee_to: Principal) -> bool {
-    let metadata = storage::get_mut::<Metadata>();
-    if api::caller() != owner() {
-        return false;
-    }
-    metadata.fee_to = fee_to;
-    return true;
 }
 
 #[cfg(any(target_arch = "wasm32", test))]

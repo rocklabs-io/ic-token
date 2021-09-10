@@ -1,3 +1,19 @@
+type MetaInfo = record {
+  fee : nat64;
+  deploy_time : nat64;
+  burnable : bool;
+  decimals : nat8;
+  holder_number : nat64;
+  fee_to : principal;
+  owner : principal;
+  history_size : nat64;
+  logo : text;
+  name : text;
+  mintable : bool;
+  cycles : nat64;
+  total_supply : nat64;
+  symbol : text;
+};
 type OpRecord = record {
   op : Operation;
   to : principal;
@@ -23,12 +39,17 @@ service : (text, text, text, nat8, nat64, principal, bool, bool) -> {
   balanceOf : (principal) -> (nat64) query;
   burn : (principal, nat64) -> (Result);
   decimals : () -> (nat8) query;
+  getLogo : () -> (text) query;
+  getMetaInfo : () -> (MetaInfo) query;
   getTransaction : (nat64) -> (OpRecord) query;
   getTransactions : (nat64, nat64) -> (vec OpRecord) query;
   getTxsByAccount : (principal) -> (vec OpRecord) query;
   mint : (principal, nat64) -> (Result);
   name : () -> (text) query;
   owner : () -> (principal) query;
+  setFee : (nat64) -> (bool);
+  setFeeTo : (principal) -> (bool);
+  setLogo : (text) -> (bool);
   symbol : () -> (text) query;
   totalSupply : () -> (nat64) query;
   transfer : (principal, nat64) -> (Result);
