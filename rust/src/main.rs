@@ -9,21 +9,39 @@
 use ic_cdk::{export::Principal, storage, api};
 use ic_cdk_macros::*;
 use std::collections::HashMap;
-use candid::{candid_method, CandidType};
+use candid::{candid_method, CandidType, Deserialize};
 use std::string::String;
-use serde::Deserialize;
 
-static mut LOGO: &str = "";
-static mut NAME: &str = "";
-static mut SYMBOL: &str = "";
-static mut DECIMALS: u8 = 8;
-static mut OWNER: Principal = Principal::anonymous();
-static mut TOTALSUPPLY: u64 = 0;
-static mut MINTABLE: bool = false;
-static mut BURNABLE: bool = false;
+#[derive(Deserialize, CandidType, Clone)]
+pub struct Metadata {
+    logo: String,
+    name: String,
+    symbol: String,
+    decimals: u8,
+    total_supply: u64,
+    mintable: bool,
+    burnable: bool,
+    owner: Principal,
+    fee: u64,
+    fee_to: Principal,
+}
 
-static mut FEETO: Principal = Principal::anonymous();
-static mut FEE: u64 = 100000; // 0.001 for a 8 decimal token
+impl Default for Metadata {
+    fn default() -> Self { 
+        Metadata {
+            logo: "".to_string(),
+            name: "".to_string(),
+            symbol: "".to_string(),
+            decimals: 0u8,
+            total_supply: 0u64,
+            mintable: false,
+            burnable: false,
+            owner: Principal::anonymous(),
+            fee: 0u64,
+            fee_to: Principal::anonymous(),
+        }
+    }
+}
 
 type Balances = HashMap<Principal, u64>;
 type Allowances = HashMap<Principal, HashMap<Principal, u64>>;
@@ -31,11 +49,7 @@ type Ops = Vec<OpRecord>;
 
 #[derive(Deserialize, CandidType)]
 struct UpgradePayload {
-    name: String,
-    symbol: String,
-    decimals: u8,
-    total_supply: u64,
-    owner: Principal,
+    metadata: Metadata,
     balance: Vec<(Principal, u64)>,
     allow: Vec<(Principal, Vec<(Principal, u64)>)>,
 }
@@ -67,7 +81,7 @@ enum TxError {
 type TxReceipt = Result<u64, TxError>;
 
 #[derive(CandidType)]
-pub struct Metadata {
+pub struct MetaInfo {
     pub logo: String,
     pub name: String,
     pub symbol: String,
@@ -76,11 +90,11 @@ pub struct Metadata {
     pub mintable: bool,
     pub burnable: bool,
     pub owner: Principal,
-    pub history_size: u64,
+    pub history_size: usize,
     pub deploy_time: u64,
     pub fee: u64,
     pub fee_to: Principal,
-    pub holder_number: u64,
+    pub holder_number: usize,
     pub cycles: u64,
 }
 
@@ -95,10 +109,6 @@ fn add_record(caller: Principal, op: Operation, from: Principal, to: Principal,
     index
 }
 
-// TODO: 
-// add: getMetadata, getLogo/setLogo, setFee/setFeeTo
-// try to remove mutable static and unsafe blocks, how?
-
 #[init]
 #[candid_method(init)]
 fn init(
@@ -111,20 +121,20 @@ fn init(
     mintable: bool,
     burnable: bool
     ) {
-    unsafe {
-        LOGO = Box::leak(logo.into_boxed_str());
-        NAME = Box::leak(name.into_boxed_str());
-        SYMBOL = Box::leak(symbol.into_boxed_str());
-        DECIMALS = decimals;
-        TOTALSUPPLY = total_supply;
-        OWNER = owner;
-        MINTABLE = mintable;
-        BURNABLE = burnable;
-        FEETO = owner;
+        let metadata = storage::get_mut::<Metadata>();
+        metadata.logo = logo;
+        metadata.name = name;
+        metadata.symbol = symbol;
+        metadata.decimals = decimals;
+        metadata.total_supply = total_supply;
+        metadata.mintable = mintable;
+        metadata.burnable = burnable;
+        metadata.owner = owner;
+        metadata.fee = 100000;
+        metadata.fee_to = owner;
         let balances = storage::get_mut::<Balances>();
-        balances.insert(OWNER, TOTALSUPPLY);
-        let _ = add_record(OWNER, Operation::Init, Principal::from_text("aaaaa-aa").unwrap(), OWNER, TOTALSUPPLY, 0, api::time());
-    }
+        balances.insert(owner, total_supply);
+        let _ = add_record(owner, Operation::Init, Principal::from_text("aaaaa-aa").unwrap(), owner, total_supply, 0, api::time());
 }
 
 fn _transfer(from: Principal, to: Principal, value: u64) {
@@ -144,10 +154,9 @@ fn _transfer(from: Principal, to: Principal, value: u64) {
 }
 
 fn _charge_fee(user: Principal, fee_to: Principal, fee: u64) {
-    unsafe {
-        if FEE > 0 {
-            _transfer(user, fee_to, fee);
-        }
+    let metadata = storage::get::<Metadata>();
+    if metadata.fee > 0 {
+        _transfer(user, fee_to, fee);
     }
 }
 
@@ -156,14 +165,13 @@ fn _charge_fee(user: Principal, fee_to: Principal, fee: u64) {
 fn transfer(to: Principal, value: u64) -> TxReceipt {
     let from = api::caller();
     let from_balance = balance_of(from);
-    unsafe {
-        if from_balance < value || from_balance < FEE {
-            return Err(TxError::InsufficientBalance);
-        } 
-    }
-    unsafe { _charge_fee(from, FEETO, FEE) };
+    let metadata = storage::get::<Metadata>();
+    if from_balance < value || from_balance < metadata.fee {
+        return Err(TxError::InsufficientBalance);
+    } 
+    _charge_fee(from, metadata.fee_to, metadata.fee);
     _transfer(from, to, value);
-    let txid = unsafe { add_record(from, Operation::Transfer, from, to, value, FEE, api::time()) };
+    let txid = add_record(from, Operation::Transfer, from, to, value, metadata.fee, api::time());
     Ok(txid)
 }
 
@@ -172,16 +180,15 @@ fn transfer(to: Principal, value: u64) -> TxReceipt {
 fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
     let owner = api::caller();
     let from_allowance = allowance(from, owner);
+    let metadata = storage::get::<Metadata>();
     if from_allowance < value {
         Err(TxError::InsufficientAllowance)
     } else {
-        let from_balance = balance_of(from);
-        unsafe {
-            if from_balance < value || from_balance < FEE {
-                return Err(TxError::InsufficientBalance);
-            } 
-        }
-        unsafe { _charge_fee(from, FEETO, FEE); }
+        let from_balance = balance_of(from);        
+        if from_balance < value || from_balance < metadata.fee {
+            return Err(TxError::InsufficientBalance);
+        } 
+        _charge_fee(from, metadata.fee_to, metadata.fee);
         _transfer(from, to, value);
         let allowances_read = storage::get::<Allowances>();
         match allowances_read.get(&from) {
@@ -196,7 +203,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
                 assert!(false);
             }
         }
-        let txid = unsafe { add_record(owner, Operation::Transfer, from, to, value, FEE, api::time()) };
+        let txid = add_record(owner, Operation::Transfer, from, to, value, metadata.fee, api::time());
         Ok(txid)
     }
 }
@@ -205,12 +212,11 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
 #[candid_method(update)]
 fn approve(spender: Principal, value: u64) -> TxReceipt {
     let owner = api::caller();
-    unsafe {
-        if balance_of(owner) < FEE {
-            return Err(TxError::InsufficientBalance);
-        }
+    let metadata = storage::get::<Metadata>();
+    if balance_of(owner) < metadata.fee {
+        return Err(TxError::InsufficientBalance);
     }
-    unsafe { _charge_fee(owner, FEETO, FEE); }
+    _charge_fee(owner, metadata.fee_to, metadata.fee);
     let allowances_read = storage::get::<Allowances>();
     match allowances_read.get(&owner) {
         Some(inner) => {
@@ -226,27 +232,24 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
             allowances.insert(owner, inner);
         }
     }
-    let txid = unsafe { add_record(owner, Operation::Approve, owner, spender, value, FEE, api::time()) };
+    let txid = add_record(owner, Operation::Approve, owner, spender, value, metadata.fee, api::time());
     Ok(txid)
 }
 
 #[update(name = "mint")]
 #[candid_method(update)]
 fn mint(to: Principal, value: u64) -> TxReceipt {
-    unsafe {
-        if !MINTABLE || api::caller() == owner() {
-            return Err(TxError::Unauthorized);
-        }
-    }
+    let metadata = storage::get_mut::<Metadata>();
+    if !metadata.mintable || api::caller() != owner() {
+        return Err(TxError::Unauthorized);
+    }    
     let balance_before = balance_of(to);
     if balance_before + value >= u64::MAX {
         Err(TxError::Overflow)
     } else {
         let balances = storage::get_mut::<Balances>();
         balances.insert(to, balance_before + value);
-        unsafe {
-            TOTALSUPPLY += value;
-        }
+        metadata.total_supply += value;
         let txid = add_record(api::caller(), Operation::Mint, Principal::from_text("aaaaa-aa").unwrap(), to, value, 0, api::time());    
         Ok(txid)
     }
@@ -255,10 +258,9 @@ fn mint(to: Principal, value: u64) -> TxReceipt {
 #[update(name = "burn")]
 #[candid_method(update)]
 fn burn(from: Principal, value: u64) -> TxReceipt {
-    unsafe {
-        if !BURNABLE || api::caller() != from || api::caller() != owner() {
-            return Err(TxError::Unauthorized);
-        }
+    let metadata = storage::get_mut::<Metadata>();
+    if !metadata.burnable || (api::caller() != from && api::caller() != owner()) {
+        return Err(TxError::Unauthorized);
     }
     let balance = balance_of(from);
     if balance < value {
@@ -266,10 +268,40 @@ fn burn(from: Principal, value: u64) -> TxReceipt {
     } else {
         let balances = storage::get_mut::<Balances>();
         balances.insert(from, balance - value);
-        unsafe { TOTALSUPPLY -= value; }
+        metadata.total_supply -= value;
         let txid = add_record(api::caller(), Operation::Burn, from, Principal::from_text("aaaaa-aa").unwrap(), value, 0, api::time());
         Ok(txid)
     }
+}
+
+#[update(name = "setLogo")]
+#[candid_method(update, rename = "setLogo")]
+fn set_logo(logo: String) -> bool {
+    let metadata = storage::get_mut::<Metadata>();
+    metadata.logo = logo;
+    return true;
+}
+
+#[update(name = "setFee")]
+#[candid_method(update, rename = "setFee")]
+fn set_fee(fee: u64) -> bool {
+    let metadata = storage::get_mut::<Metadata>();
+    if api::caller() != metadata.owner {
+        return false;
+    }
+    metadata.fee = fee;
+    return true;
+}
+
+#[update(name = "setFeeTo")]
+#[candid_method(update, rename = "setFeeTo")]
+fn set_fee_to(fee_to: Principal) -> bool {
+    let metadata = storage::get_mut::<Metadata>();
+    if api::caller() != owner() {
+        return false;
+    }
+    metadata.fee_to = fee_to;
+    return true;
 }
 
 #[query(name = "balanceOf")]
@@ -300,41 +332,36 @@ fn allowance(owner: Principal, spender: Principal) -> u64 {
 #[query(name = "name")]
 #[candid_method(query)]
 fn name() -> String {
-    unsafe {
-        NAME.to_string()
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.name.clone()
 }
 
 #[query(name = "symbol")]
 #[candid_method(query)]
 fn symbol() -> String {
-    unsafe {
-        SYMBOL.to_string()
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.symbol.clone()
 }
 
 #[query(name = "decimals")]
 #[candid_method(query)]
 fn decimals() -> u8 {
-    unsafe {
-        DECIMALS
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.decimals
 }
 
 #[query(name = "totalSupply")]
 #[candid_method(query, rename = "totalSupply")]
 fn total_supply() -> u64 {
-    unsafe {
-        TOTALSUPPLY
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.total_supply
 }
 
 #[query(name = "owner")]
 #[candid_method(query)]
 fn owner() -> Principal {
-    unsafe {
-        OWNER
-    }
+    let metadata = storage::get::<Metadata>();
+    metadata.owner
 }
 
 // #[query(name = "controller")]
@@ -345,23 +372,23 @@ fn owner() -> Principal {
 // }
 
 #[query(name = "getTransaction")]
-#[candid_method(query)]
+#[candid_method(query, rename = "getTransaction")]
 fn get_transaction(index: usize) -> OpRecord {
-    let ops = storage::get_mut::<Ops>();
+    let ops = storage::get::<Ops>();
     ops[index]
 }
 
 #[query(name = "allTransactions")]
-#[candid_method(query)]
+#[candid_method(query, rename = "allTransactions")]
 fn all_transactions() -> Vec<OpRecord> {
-    storage::get_mut::<Ops>().to_vec()
+    storage::get::<Ops>().to_vec()
 }
 
 #[query(name = "getTransactions")]
-#[candid_method(query)]
+#[candid_method(query, rename = "getTransactions")]
 fn get_transactions(start: usize, num: usize) -> Vec<OpRecord> {
     let mut res : Vec<OpRecord> = Vec::new();
-    let ops = storage::get_mut::<Ops>();
+    let ops = storage::get::<Ops>();
     let mut i = start;
     while i < start + num && i < ops.len() {
         res.push(ops[i]);
@@ -371,9 +398,9 @@ fn get_transactions(start: usize, num: usize) -> Vec<OpRecord> {
 }
 
 #[query(name = "getTxsByAccount")]
-#[candid_method(query)]
+#[candid_method(query, rename = "getTxsByAccount")]
 fn get_txs_by_account(a: Principal) -> Vec<OpRecord> {
-    let ops = storage::get_mut::<Ops>();
+    let ops = storage::get::<Ops>();
     let mut res : Vec<OpRecord> = Vec::new();
     for i in ops {
         if i.caller == a || i.from == a || i.to == a {
@@ -383,6 +410,36 @@ fn get_txs_by_account(a: Principal) -> Vec<OpRecord> {
     res
 }
 
+#[query(name = "getMetaInfo")]
+#[candid_method(query, rename = "getMetaInfo")]
+fn get_meta_info() -> MetaInfo {
+    let metadata = storage::get::<Metadata>();
+    let ops = storage::get::<Ops>();
+    let balance = storage::get::<Balances>();
+    return MetaInfo {
+        logo: metadata.logo.clone(),
+        name: metadata.name.clone(),
+        symbol: metadata.symbol.clone(),
+        decimals: metadata.decimals,
+        total_supply: metadata.total_supply,
+        mintable: metadata.mintable,
+        burnable: metadata.burnable,
+        owner: metadata.owner,
+        history_size: ops.len(),
+        deploy_time: ops[0].timestamp,
+        fee: metadata.fee,
+        fee_to: metadata.fee_to,
+        holder_number: balance.len(),
+        cycles: api::canister_balance(),
+    };
+}
+
+#[query(name = "getLogo")]
+#[candid_method(query, rename = "getLogo")]
+fn get_logo() -> String {
+    let metadata = storage::get::<Metadata>();
+    metadata.logo.clone()
+}
 
 #[cfg(any(target_arch = "wasm32", test))]
 fn main() {}
@@ -396,28 +453,22 @@ fn main() {
 // TODO: fix upgrade functions
 #[pre_upgrade]
 fn pre_upgrade() {
-    let name = unsafe{ NAME };
-    let symbol = unsafe{ SYMBOL };
-    let decimals = unsafe{ DECIMALS };
-    let total_supply = unsafe{ TOTALSUPPLY };
-    let owner = unsafe{ OWNER };
+    let metadata = storage::get::<Metadata>().clone();
     let mut balance = Vec::new();
     // let mut allow: Vec<(Principal, Vec<(Principal, u64)>)> = Vec::new();
     let mut allow = Vec::new();
-    for (k, v) in storage::get_mut::<Balances>().iter() {
+    for (k, v) in storage::get::<Balances>().iter() {
         balance.push((*k, *v));
     }
-    for (k, v) in storage::get_mut::<Allowances>().iter() {
+    for (k, v) in storage::get::<Allowances>().iter() {
         let mut item = Vec::new();
         for (a, b) in v.iter() {
             item.push((*a, *b));
         }
         allow.push((*k, item));
     }
-    let name = name.to_string();
-    let symbol = symbol.to_string();
     let up = UpgradePayload {
-        name, symbol, decimals, total_supply, owner, balance, allow,
+        metadata, balance, allow,
     };
     storage::stable_save((up, )).unwrap();
 }
@@ -427,13 +478,8 @@ fn post_upgrade() {
     // There can only be one value in stable memory, currently. otherwise, lifetime error.
     // https://docs.rs/ic-cdk/0.3.0/ic_cdk/storage/fn.stable_restore.html
     let (down, ) : (UpgradePayload, ) = storage::stable_restore().unwrap();
-    unsafe {
-        NAME = Box::leak(down.name.into_boxed_str());
-        SYMBOL = Box::leak(down.symbol.into_boxed_str());
-        DECIMALS = down.decimals;
-        TOTALSUPPLY = down.total_supply;
-        OWNER = down.owner;
-    }
+    let metadata = storage::get_mut::<Metadata>();
+    *metadata = down.metadata;
     for (k, v) in down.balance {
         storage::get_mut::<Balances>().insert(k, v);
     }
