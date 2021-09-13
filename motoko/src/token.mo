@@ -24,7 +24,8 @@ shared(msg) actor class Token(
     _symbol: Text,
     _decimals: Nat8, 
     _totalSupply: Nat, 
-    _owner: Principal
+    _owner: Principal,
+    _fee: Nat
     ) {
     type Operation = Types.Operation;
     type TxRecord = Types.TxRecord;
@@ -51,7 +52,7 @@ shared(msg) actor class Token(
     private stable var totalSupply_ : Nat = _totalSupply;
     private stable var blackhole : Principal = Principal.fromText("aaaaa-aa");
     private stable var feeTo : Principal = owner_;
-    private stable var fee : Nat = 0;
+    private stable var fee : Nat = _fee;
     private stable var balanceEntries : [(Principal, Nat)] = [];
     private stable var allowanceEntries : [(Principal, [(Principal, Nat)])] = [];
     private var balances = HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
