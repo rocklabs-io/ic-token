@@ -24,27 +24,18 @@ shared(msg) actor class Token(
     _symbol: Text,
     _decimals: Nat8, 
     _totalSupply: Nat, 
-    _owner: Principal, 
-    _mintable: Bool, 
-    _burnable: Bool
+    _owner: Principal
     ) {
     type Operation = Types.Operation;
-    type OpRecord = Types.OpRecord;
+    type TxRecord = Types.TxRecord;
     type Metadata = {
         logo : Text;
         name : Text;
         symbol : Text;
         decimals : Nat8;
         totalSupply : Nat;
-        mintable: Bool;
-        burnable: Bool;
         owner : Principal;
-        historySize : Nat;
-        deployTime: Time.Time;
         fee : Nat;
-        feeTo : Principal;
-        holderNumber : Nat;
-        cycles : Nat;
     };
     // returns tx index or error msg
     type TxReceipt = Result.Result<Nat, {
@@ -58,8 +49,6 @@ shared(msg) actor class Token(
     private stable var decimals_ : Nat8 = _decimals;
     private stable var symbol_ : Text = _symbol;
     private stable var totalSupply_ : Nat = _totalSupply;
-    private stable var mintable_ : Bool = _mintable;
-    private stable var burnable_ : Bool = _burnable;
     private stable var blackhole : Principal = Principal.fromText("aaaaa-aa");
     private stable var feeTo : Principal = owner_;
     private stable var fee : Nat = 0;
@@ -68,9 +57,9 @@ shared(msg) actor class Token(
     private var balances = HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
     private var allowances = HashMap.HashMap<Principal, HashMap.HashMap<Principal, Nat>>(1, Principal.equal, Principal.hash);
     balances.put(owner_, totalSupply_);
-    private stable let genesis : OpRecord = {
-        caller = owner_;
-        op = #init;
+    private stable let genesis : TxRecord = {
+        caller = ?owner_;
+        op = #mint;
         index = 0;
         from = blackhole;
         to = owner_;
@@ -78,14 +67,14 @@ shared(msg) actor class Token(
         fee = 0;
         timestamp = Time.now();
     };
-    private stable var ops : [OpRecord] = [genesis];
+    private stable var ops : [TxRecord] = [genesis];
 
     private func addRecord(
-        caller: Principal, op: Operation, from: Principal, to: Principal, amount: Nat,
+        caller: ?Principal, op: Operation, from: Principal, to: Principal, amount: Nat,
         fee: Nat, timestamp: Time.Time
     ): Nat {
         let index = ops.size();
-        let o : OpRecord = {
+        let o : TxRecord = {
             caller = caller;
             op = op;
             index = index;
@@ -135,23 +124,14 @@ shared(msg) actor class Token(
         }
     };
 
-    public shared(msg) func setFeeTo(to: Principal) : async Bool {
-        assert(msg.caller == owner_);
-        feeTo := to;
-        return true;
-    };
-
-    public shared(msg) func setFee(_fee: Nat) : async Bool {
-        assert(msg.caller == owner_);
-        fee := _fee;
-        return true;
-    };
-
-    public shared(msg) func setLogo(logo: Text) : async Bool {
-        assert(msg.caller == owner_);
-        logo_ := logo;
-        return true;
-    };
+    /*
+    *   Core interfaces: 
+    *       update calls: 
+    *           transfer/transferFrom/approve
+    *       query calls: 
+    *           logo/name/symbol/decimal/totalSupply/balanceOf/allowance/getMetadata
+    *           getHistorySize/getTransaction/getTransactions
+    */
 
     /// Transfers value amount of tokens to Principal to.
     public shared(msg) func transfer(to: Principal, value: Nat) : async TxReceipt {
@@ -160,7 +140,7 @@ shared(msg) actor class Token(
         };
         _chargeFee(msg.caller, fee);
         _transfer(msg.caller, to, value - fee);
-        let txid = addRecord(msg.caller, #transfer, msg.caller, to, value, fee, Time.now());
+        let txid = addRecord(null, #transfer, msg.caller, to, value, fee, Time.now());
         return #ok(txid);
     };
 
@@ -186,7 +166,7 @@ shared(msg) actor class Token(
                 else { allowances.put(from, allowance_from); };
             };
         };
-        let txid = addRecord(from, #transfer, from, to, value, fee, Time.now());
+        let txid = addRecord(?msg.caller, #transferFrom, from, to, value, fee, Time.now());
         return #ok(txid);
     };
 
@@ -209,63 +189,8 @@ shared(msg) actor class Token(
             allowance_caller.put(spender, value);
             allowances.put(msg.caller, allowance_caller);
         };
-        let txid = addRecord(msg.caller, #approve, msg.caller, spender, value, fee, Time.now());
+        let txid = addRecord(null, #approve, msg.caller, spender, value, fee, Time.now());
         return #ok(txid);
-    };
-
-    public shared(msg) func setMintable(v: Bool): async Bool {
-        assert(msg.caller == owner_);
-        mintable_ := v;
-        return true;
-    };
-
-    public shared(msg) func setBurnable(v: Bool): async Bool {
-        assert(msg.caller == owner_);
-        burnable_ := v;
-        return true;
-    };
-
-    /// Creates value tokens and assigns them to Principal to, increasing the total supply.
-    public shared(msg) func mint(to: Principal, value: Nat): async TxReceipt {
-        assert(mintable_);
-        assert(msg.caller == owner_);
-        if (Option.isSome(balances.get(to))) {
-            balances.put(to, Option.unwrap(balances.get(to)) + value);
-            totalSupply_ += value;
-        } else {
-            if (value != 0) {
-                balances.put(to, value);
-                totalSupply_ += value;
-            };
-        };
-        let txid = addRecord(msg.caller, #mint, blackhole, to, value, 0, Time.now());
-        return #ok(txid);
-    };
-
-    public shared(msg) func burn(from: Principal, value: Nat): async TxReceipt {
-        assert(burnable_);
-        assert(msg.caller == owner_ or msg.caller == from);
-        if (Option.isSome(balances.get(from))) {
-            let balance_from = _balanceOf(from);
-            if (balance_from < value) { return #err(#InsufficientBalance); }
-            else if (balance_from == value) { balances.delete(from); }
-            else { balances.put(from, balance_from - value); };
-            totalSupply_ -= value;
-        } else { return #err(#InsufficientBalance); };
-        let txid = addRecord(msg.caller, #burn, from, blackhole, value, 0, Time.now());
-        return #ok(txid);
-    };
-
-    public query func balanceOf(who: Principal) : async Nat {
-        return _balanceOf(who);
-    };
-
-    public query func allowance(owner: Principal, spender: Principal) : async Nat {
-        return _allowance(owner, spender);
-    };
-
-    public query func totalSupply() : async Nat {
-        return totalSupply_;
     };
 
     public query func logo() : async Text {
@@ -276,140 +201,24 @@ shared(msg) actor class Token(
         return name_;
     };
 
-    public query func decimals() : async Nat8 {
-        return decimals_;
-    };
-
     public query func symbol() : async Text {
         return symbol_;
     };
 
-    public query func owner() : async Principal {
-        return owner_;
+    public query func decimals() : async Nat8 {
+        return decimals_;
     };
 
-    public query func getFeeTo() : async Principal {
-        return feeTo;
+    public query func totalSupply() : async Nat {
+        return totalSupply_;
     };
 
-    public query func getFee() : async Nat {
-        return fee;
+    public query func balanceOf(who: Principal) : async Nat {
+        return _balanceOf(who);
     };
 
-    public query func getHolderNumber() : async Nat {
-        return balances.size();
-    };
-
-    /// Get transaction by index.
-    public query func getTransaction(index: Nat) : async OpRecord {
-        return ops[index];
-    };
-
-    /// Get history
-    public query func getTransactions(start: Nat, num: Nat) : async [OpRecord] {
-        var ret: [OpRecord] = [];
-        var i = start;
-        while(i < start + num and i < ops.size()) {
-            ret := Array.append(ret, [ops[i]]);
-            i += 1;
-        };
-        return ret;
-    };
-
-    public query func getUserTxAmount(a: Principal) : async Nat {
-        var res: Nat = 0;
-        for (i in ops.vals()) {
-            if (i.caller == a or i.from == a or i.to == a) {
-                res += 1;
-            };
-        };
-        return res;
-    };
-
-    public query func getUserTxs(a: Principal, start: Nat, num: Nat) : async [OpRecord] {
-        var res: [OpRecord] = [];
-        var index: Nat = 0;
-        for (i in ops.vals()) {
-            if (i.caller == a or i.from == a or i.to == a) {
-                if(index >= start and index < start + num) {
-                    res := Array.append<OpRecord>(res, [i]);
-                };
-                index += 1;
-            };
-        };
-        return res;
-    };
-
-    /// Get history by account.
-    public query func getTxsByAccount(a: Principal) : async [OpRecord] {
-        var res: [OpRecord] = [];
-        for (i in ops.vals()) {
-            if (i.caller == a or i.from == a or i.to == a) {
-                res := Array.append<OpRecord>(res, [i]);
-            };
-        };
-        return res;
-    };
-    
-    /// Get all update call history.
-    public query func allTransactions() : async [OpRecord] {
-        return ops;
-    };
-
-    public query func getAllAllowed() : async [(Principal, [(Principal, Nat)])] {
-        var size : Nat = allowances.size();
-        var res : [var (Principal, [(Principal, Nat)])] = Array.init<(Principal, [(Principal, Nat)])>(size, (owner_, []));
-        size := 0;
-        for ((k, v) in allowances.entries()) {
-            res[size] := (k, Iter.toArray(v.entries()));
-            size += 1;
-        };
-        return Array.freeze(res);
-    };
-
-    public query func getAllAllowedNumber() : async Nat {
-        var size : Nat = 0;
-        for ((k, v) in allowances.entries()) {
-            size += v.size();
-        };
-        return size;   
-    };
-
-    public query func getSomeAllowed(who : Principal) : async [(Principal, Nat)] {
-        var size : Nat = 0;
-        if (Option.isSome(allowances.get(who))) {
-            let allowance_who = Option.unwrap(allowances.get(who));
-            return Iter.toArray(allowance_who.entries());
-        } else {
-            return [];
-        };
-    };
-
-    public query func getSomeAllowedNumber(who : Principal) : async Nat {
-        if (Option.isSome(allowances.get(who))) { return Option.unwrap(allowances.get(who)).size(); } 
-        else { return 0; };
-    };
-
-    public query func getAccounts(start: Nat, num: Nat) : async ([(Principal, Nat)], Nat) {
-        let temp =  Iter.toArray(balances.entries());
-        func order (a: (Principal, Nat), b: (Principal, Nat)) : Order.Order {
-            return Nat.compare(b.1, a.1);
-        };
-        let sorted = Array.sort(temp, order);
-        let limit: Nat = if(start + num > temp.size()) {
-            temp.size() - start
-        } else {
-            num
-        };
-        let res = Array.init<(Principal, Nat)>(limit, (owner_, 0));
-        for (i in Iter.range(0, limit-1)) {
-            res[i] := sorted[i+start];
-        };
-        return (Array.freeze(res), sorted.size());
-    };
-
-    public query func getCycles() : async Nat {
-        return ExperimentalCycles.balance();
+    public query func allowance(owner: Principal, spender: Principal) : async Nat {
+        return _allowance(owner, spender);
     };
 
     public query func getMetadata() : async Metadata {
@@ -419,18 +228,153 @@ shared(msg) actor class Token(
             symbol = symbol_;
             decimals = decimals_;
             totalSupply = totalSupply_;
-            mintable = mintable_;
-            burnable = burnable_;
             owner = owner_;
-            historySize = ops.size();
-            deployTime = genesis.timestamp;
             fee = fee;
-            feeTo = feeTo;
-            holderNumber = balances.size();
-            cycles = ExperimentalCycles.balance();
         };
     };
 
+    /// Get transaction history size
+    public query func historySize() : async Nat {
+        return ops.size();
+    };
+
+    /// Get transaction by index.
+    public query func getTransaction(index: Nat) : async TxRecord {
+        return ops[index];
+    };
+
+    /// Get history
+    public query func getTransactions(start: Nat, limit: Nat) : async [TxRecord] {
+        var ret: [TxRecord] = [];
+        var i = start;
+        while(i < start + limit and i < ops.size()) {
+            ret := Array.append(ret, [ops[i]]);
+            i += 1;
+        };
+        return ret;
+    };
+
+    /*
+    *   Optional interfaces:
+    *       setLogo/setFee/setFeeTo/setOwner
+    *       getUserTransactionsAmount/getUserTransactions
+    *       getTokenInfo/getHolders/getUserApprovals
+    */
+    public shared(msg) func setLogo(logo: Text) : async Bool {
+        assert(msg.caller == owner_);
+        logo_ := logo;
+        return true;
+    };
+
+    public shared(msg) func setFeeTo(to: Principal) : async Bool {
+        assert(msg.caller == owner_);
+        feeTo := to;
+        return true;
+    };
+
+    public shared(msg) func setFee(_fee: Nat) : async Bool {
+        assert(msg.caller == owner_);
+        fee := _fee;
+        return true;
+    };
+
+    public shared(msg) func setOwner(_owner: Principal) : async Bool {
+        assert(msg.caller == owner_);
+        owner_ := _owner;
+        return true;
+    };
+
+    public query func getUserTransactionsAmount(a: Principal) : async Nat {
+        var res: Nat = 0;
+        for (i in ops.vals()) {
+            if (i.caller == ?a or i.from == a or i.to == a) {
+                res += 1;
+            };
+        };
+        return res;
+    };
+
+    public query func getUserTransactions(a: Principal, start: Nat, limit: Nat) : async [TxRecord] {
+        var res: [TxRecord] = [];
+        var index: Nat = 0;
+        for (i in ops.vals()) {
+            if (i.caller == ?a or i.from == a or i.to == a) {
+                if(index >= start and index < start + limit) {
+                    res := Array.append<TxRecord>(res, [i]);
+                };
+                index += 1;
+            };
+        };
+        return res;
+    };
+
+    public type TokenInfo = {
+        metadata: Metadata;
+        feeTo: Principal;
+        // status info
+        historySize: Nat;
+        deployTime: Time.Time;
+        holderNumber: Nat;
+        cycles: Nat;
+    };
+    public query func getTokenInfo(): async TokenInfo {
+        {
+            metadata = {
+                logo = logo_;
+                name = name_;
+                symbol = symbol_;
+                decimals = decimals_;
+                totalSupply = totalSupply_;
+                owner = owner_;
+                fee = fee;
+            };
+            feeTo = feeTo;
+            historySize = ops.size();
+            deployTime = genesis.timestamp;
+            holderNumber = balances.size();
+            cycles = ExperimentalCycles.balance();
+        }
+    };
+
+    public query func getHolders(start: Nat, limit: Nat) : async [(Principal, Nat)] {
+        let temp =  Iter.toArray(balances.entries());
+        func order (a: (Principal, Nat), b: (Principal, Nat)) : Order.Order {
+            return Nat.compare(b.1, a.1);
+        };
+        let sorted = Array.sort(temp, order);
+        let limit_: Nat = if(start + limit > temp.size()) {
+            temp.size() - start
+        } else {
+            limit
+        };
+        let res = Array.init<(Principal, Nat)>(limit_, (owner_, 0));
+        for (i in Iter.range(0, limit_ - 1)) {
+            res[i] := sorted[i+start];
+        };
+        return Array.freeze(res);
+    };
+
+    public query func getAllowanceSize() : async Nat {
+        var size : Nat = 0;
+        for ((k, v) in allowances.entries()) {
+            size += v.size();
+        };
+        return size;   
+    };
+
+    public query func getUserApprovals(who : Principal) : async [(Principal, Nat)] {
+        var size : Nat = 0;
+        if (Option.isSome(allowances.get(who))) {
+            let allowance_who = Option.unwrap(allowances.get(who));
+            return Iter.toArray(allowance_who.entries());
+        } else {
+            return [];
+        };
+    };
+
+    /*
+    * upgrade functions
+    */
     system func preupgrade() {
         balanceEntries := Iter.toArray(balances.entries());
         var size : Nat = allowances.size();

@@ -12,14 +12,13 @@ module {
     /// Update call operations
     public type Operation = {
         #mint;
-        #burn;
         #transfer;
+        #transferFrom;
         #approve;
-        #init;
     };
     /// Update call operation record fields
-    public type OpRecord = {
-        caller: Principal;
+    public type TxRecord = {
+        caller: ?Principal;
         op: Operation;
         index: Nat;
         from: Principal;
