@@ -284,7 +284,7 @@ shared(msg) actor class Token(
         return true;
     };
 
-    public query func getUserTransactionsAmount(a: Principal) : async Nat {
+    public query func getUserTransactionAmount(a: Principal) : async Nat {
         var res: Nat = 0;
         for (i in ops.vals()) {
             if (i.caller == ?a or i.from == a or i.to == a) {
