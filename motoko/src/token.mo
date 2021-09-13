@@ -130,7 +130,7 @@ shared(msg) actor class Token(
     *           transfer/transferFrom/approve
     *       query calls: 
     *           logo/name/symbol/decimal/totalSupply/balanceOf/allowance/getMetadata
-    *           getHistorySize/getTransaction/getTransactions
+    *           historySize/getTransaction/getTransactions
     */
 
     /// Transfers value amount of tokens to Principal to.

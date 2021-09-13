@@ -44,7 +44,7 @@ A standard token interface is a basic building block for many applications on th
        #transferFrom;
    };
    public type TxRecord = {
-       caller: Principal?;
+       caller: ?Principal;
        op: Operation; // operation type
        index: Nat; // transaction index
        from: Principal;
