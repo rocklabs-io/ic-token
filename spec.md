@@ -158,7 +158,7 @@ The following functions are used for query of history transaction records.
 
 ##### getTransaction
 
-Returns transaction detail of the transaction identified by `index`.
+Returns transaction detail of the transaction identified by `index`. If the `index` is out of range, the execution traps.
 
 ```js
 public query func getTransaction(index: Nat) : async TxRecord
