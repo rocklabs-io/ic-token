@@ -7,6 +7,7 @@
  */
 
 import Time "mo:base/Time";
+import P "mo:base/Prelude";
 
 module {
     /// Update call operations
@@ -27,4 +28,10 @@ module {
         fee: Nat;
         timestamp: Time.Time;
     };
+
+    public func unwrap<T>(x : ?T) : T =
+        switch x {
+            case null { P.unreachable() };
+            case (?x_) { x_ };
+        };
 };    

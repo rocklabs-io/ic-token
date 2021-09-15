@@ -156,12 +156,12 @@ shared(msg) actor class Token(
         _transfer(from, to, value - fee);
         let allowed_new : Nat = allowed - value;
         if (allowed_new != 0) {
-            let allowance_from = Option.unwrap(allowances.get(from));
+            let allowance_from = Types.unwrap(allowances.get(from));
             allowance_from.put(msg.caller, allowed_new);
             allowances.put(from, allowance_from);
         } else {
             if (allowed != 0) {
-                let allowance_from = Option.unwrap(allowances.get(from));
+                let allowance_from = Types.unwrap(allowances.get(from));
                 allowance_from.delete(msg.caller);
                 if (allowance_from.size() == 0) { allowances.delete(from); }
                 else { allowances.put(from, allowance_from); };
@@ -177,7 +177,7 @@ shared(msg) actor class Token(
         if(_balanceOf(msg.caller) < fee) { return #err(#InsufficientBalance); };
         _chargeFee(msg.caller, fee);
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
-            let allowance_caller = Option.unwrap(allowances.get(msg.caller));
+            let allowance_caller = Types.unwrap(allowances.get(msg.caller));
             allowance_caller.delete(spender);
             if (allowance_caller.size() == 0) { allowances.delete(msg.caller); }
             else { allowances.put(msg.caller, allowance_caller); };
@@ -186,7 +186,7 @@ shared(msg) actor class Token(
             temp.put(spender, value);
             allowances.put(msg.caller, temp);
         } else if (value != 0 and Option.isSome(allowances.get(msg.caller))) {
-            let allowance_caller = Option.unwrap(allowances.get(msg.caller));
+            let allowance_caller = Types.unwrap(allowances.get(msg.caller));
             allowance_caller.put(spender, value);
             allowances.put(msg.caller, allowance_caller);
         };
@@ -364,13 +364,14 @@ shared(msg) actor class Token(
     };
 
     public query func getUserApprovals(who : Principal) : async [(Principal, Nat)] {
-        var size : Nat = 0;
-        if (Option.isSome(allowances.get(who))) {
-            let allowance_who = Option.unwrap(allowances.get(who));
-            return Iter.toArray(allowance_who.entries());
-        } else {
-            return [];
-        };
+        switch (allowances.get(who)) {
+            case (?allowance_who) {
+                return Iter.toArray(allowance_who.entries());
+            };
+            case (_) {
+                return [];
+            };
+        }
     };
 
     /*
