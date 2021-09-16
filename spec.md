@@ -90,6 +90,8 @@ public shared(msg) func approve(spender: Principal, value: Nat) : async TxReceip
 
 #### Query calls
 
+Please keep in mind that as of now the canisters' stable memory is limited to 8GB. This forces token implementations to come up with their own scalable transaction storage implementation that offloads the data to separate canisters. An other limitation of the Dfinity blockchain is that currently inter-canister query calls are not supported. These limitations together mean that getTransaction and getTransactions functions temporarily have to be update functions.
+
 ##### logo
 
 Returns the logo of the token.
@@ -158,7 +160,7 @@ The following functions are used for query of history transaction records.
 
 ##### getTransaction
 
-Returns transaction detail of the transaction identified by `index`. If the `index` is out of range, the execution traps.
+Returns transaction detail of the transaction identified by `index`. If the `index` is out of range, the execution traps. Transactions are indexed from zero.
 
 ```js
 public query func getTransaction(index: Nat) : async TxRecord
@@ -166,8 +168,7 @@ public query func getTransaction(index: Nat) : async TxRecord
 
 ##### getTransactions
 
-Returns an array of transaction records in the range `[start, start + limit)`. Implementations are allowed to return
-less TxRecords than requested to fend off DoS attacks.
+Returns an array of transaction records in the range `[start, start + limit)`. To fend off DoS attacks, this function is allowed to trap, if limit is greater than the limit allowed by the token. This function is also allowed to trap if `start + limit > historySize()`
 
 ```js
 public query func getTransactions(start: Nat, limit: Nat) : async [TxRecord]
