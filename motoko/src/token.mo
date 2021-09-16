@@ -261,28 +261,24 @@ shared(msg) actor class Token(
     *       getUserTransactionsAmount/getUserTransactions
     *       getTokenInfo/getHolders/getUserApprovals
     */
-    public shared(msg) func setLogo(logo: Text) : async Bool {
+    public shared(msg) func setLogo(logo: Text) {
         assert(msg.caller == owner_);
         logo_ := logo;
-        return true;
     };
 
-    public shared(msg) func setFeeTo(to: Principal) : async Bool {
+    public shared(msg) func setFeeTo(to: Principal) {
         assert(msg.caller == owner_);
         feeTo := to;
-        return true;
     };
 
-    public shared(msg) func setFee(_fee: Nat) : async Bool {
+    public shared(msg) func setFee(_fee: Nat) {
         assert(msg.caller == owner_);
         fee := _fee;
-        return true;
     };
 
-    public shared(msg) func setOwner(_owner: Principal) : async Bool {
+    public shared(msg) func setOwner(_owner: Principal) {
         assert(msg.caller == owner_);
         owner_ := _owner;
-        return true;
     };
 
     public query func getUserTransactionAmount(a: Principal) : async Nat {
