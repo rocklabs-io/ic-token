@@ -64,6 +64,8 @@ A standard token interface is a basic building block for many applications on th
 The update calls described in this section might choose to charge `fee` amount of tokens to prevent DDoS attack, this is necessary because of the reverse gas model of the IC.
 All update functions are allowed to trap, instead of returning an error in order to take advantage of the canisters automatic, atomic state rollback.
 
+Please keep in mind that as of now the canisters' stable memory is limited to 8GB. This forces token implementations to come up with their own scalable transaction storage implementation that offloads the data to separate canisters. An other limitation of the Dfinity blockchain is that currently inter-canister query calls are not supported. These limitations together mean that getTransaction and getTransactions functions temporarily have to be update functions.
+
 ##### transfer
 
 Transfers `value` amount of tokens to user `to`, returns a `TxReceipt` which contains the transaction index or an error message.
@@ -88,9 +90,23 @@ Allows `spender` to withdraw tokens from your account, up to the `value` amount.
 public shared(msg) func approve(spender: Principal, value: Nat) : async TxReceipt
 ```
 
-#### Query calls
+##### getTransaction
 
-Please keep in mind that as of now the canisters' stable memory is limited to 8GB. This forces token implementations to come up with their own scalable transaction storage implementation that offloads the data to separate canisters. An other limitation of the Dfinity blockchain is that currently inter-canister query calls are not supported. These limitations together mean that getTransaction and getTransactions functions temporarily have to be update functions.
+Returns transaction detail of the transaction identified by `index`. If the `index` is out of range, the execution traps. Transactions are indexed from zero.
+
+```js
+public query func getTransaction(index: Nat) : async TxRecord
+```
+
+##### getTransactions
+
+Returns an array of transaction records in the range `[start, start + limit)`. To fend off DoS attacks, this function is allowed to trap, if limit is greater than the limit allowed by the token. This function is also allowed to trap if `start + limit > historySize()`
+
+```js
+public query func getTransactions(start: Nat, limit: Nat) : async [TxRecord]
+```
+
+#### Query calls
 
 ##### logo
 
@@ -154,24 +170,6 @@ Returns the metadata of the token.
 
 ```js
 public query func getMetadata() : async Metadata
-```
-
-The following functions are used for query of history transaction records.
-
-##### getTransaction
-
-Returns transaction detail of the transaction identified by `index`. If the `index` is out of range, the execution traps. Transactions are indexed from zero.
-
-```js
-public query func getTransaction(index: Nat) : async TxRecord
-```
-
-##### getTransactions
-
-Returns an array of transaction records in the range `[start, start + limit)`. To fend off DoS attacks, this function is allowed to trap, if limit is greater than the limit allowed by the token. This function is also allowed to trap if `start + limit > historySize()`
-
-```js
-public query func getTransactions(start: Nat, limit: Nat) : async [TxRecord]
 ```
 
 ##### historySize
