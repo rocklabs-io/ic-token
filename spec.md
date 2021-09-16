@@ -238,6 +238,8 @@ Set the owner of the token to `newOwner`, no return value needed.
 public shared(msg) func setOwner(newOwner: Principal)
 ```
 
+#### Query calls
+
 ##### getUserTransactions
 
 Returns an array of transaction records in range `[start, start + limit)` related to user `who` . Unlike `getTransactions`
