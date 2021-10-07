@@ -136,7 +136,7 @@ shared(msg) actor class Token(
 
     /// Transfers value amount of tokens to Principal to.
     public shared(msg) func transfer(to: Principal, value: Nat) : async TxReceipt {
-        if (value < fee or _balanceOf(msg.caller) < value) {
+        if (value < fee or _balanceOf(msg.caller) < value + fee) {
             return #err(#InsufficientBalance);
         };
         _chargeFee(msg.caller, fee);
@@ -147,11 +147,11 @@ shared(msg) actor class Token(
 
     /// Transfers value amount of tokens from Principal from to Principal to.
     public shared(msg) func transferFrom(from: Principal, to: Principal, value: Nat) : async TxReceipt {
-        if (value < fee or _balanceOf(from) < value) {
+        if (value < fee or _balanceOf(from) < value + fee) {
             return #err(#InsufficientBalance);
         };
         let allowed : Nat = _allowance(from, msg.caller);
-        if (allowed < value) { return #err(#InsufficientAllowance); };
+        if (allowed < value + fee) { return #err(#InsufficientAllowance); };
         _chargeFee(from, fee);
         _transfer(from, to, value);
         let allowed_new : Nat = allowed - value - fee;
