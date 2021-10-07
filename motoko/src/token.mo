@@ -156,12 +156,12 @@ shared(msg) actor class Token(
         _transfer(from, to, value);
         let allowed_new : Nat = allowed - value - fee;
         if (allowed_new != 0) {
-            let allowance_from = Option.unwrap(allowances.get(from));
+            let allowance_from = Types.unwrap(allowances.get(from));
             allowance_from.put(msg.caller, allowed_new);
             allowances.put(from, allowance_from);
         } else {
             if (allowed != 0) {
-                let allowance_from = Option.unwrap(allowances.get(from));
+                let allowance_from = Types.unwrap(allowances.get(from));
                 allowance_from.delete(msg.caller);
                 if (allowance_from.size() == 0) { allowances.delete(from); }
                 else { allowances.put(from, allowance_from); };
@@ -178,7 +178,7 @@ shared(msg) actor class Token(
         _chargeFee(msg.caller, fee);
         let v = value + fee;
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
-            let allowance_caller = Option.unwrap(allowances.get(msg.caller));
+            let allowance_caller = Types.unwrap(allowances.get(msg.caller));
             allowance_caller.delete(spender);
             if (allowance_caller.size() == 0) { allowances.delete(msg.caller); }
             else { allowances.put(msg.caller, allowance_caller); };
@@ -187,7 +187,7 @@ shared(msg) actor class Token(
             temp.put(spender, v);
             allowances.put(msg.caller, temp);
         } else if (value != 0 and Option.isSome(allowances.get(msg.caller))) {
-            let allowance_caller = Option.unwrap(allowances.get(msg.caller));
+            let allowance_caller = Types.unwrap(allowances.get(msg.caller));
             allowance_caller.put(spender, v);
             allowances.put(msg.caller, allowance_caller);
         };
@@ -262,28 +262,24 @@ shared(msg) actor class Token(
     *       getUserTransactionsAmount/getUserTransactions
     *       getTokenInfo/getHolders/getUserApprovals
     */
-    public shared(msg) func setLogo(logo: Text) : async Bool {
+    public shared(msg) func setLogo(logo: Text) {
         assert(msg.caller == owner_);
         logo_ := logo;
-        return true;
     };
 
-    public shared(msg) func setFeeTo(to: Principal) : async Bool {
+    public shared(msg) func setFeeTo(to: Principal) {
         assert(msg.caller == owner_);
         feeTo := to;
-        return true;
     };
 
-    public shared(msg) func setFee(_fee: Nat) : async Bool {
+    public shared(msg) func setFee(_fee: Nat) {
         assert(msg.caller == owner_);
         fee := _fee;
-        return true;
     };
 
-    public shared(msg) func setOwner(_owner: Principal) : async Bool {
+    public shared(msg) func setOwner(_owner: Principal) {
         assert(msg.caller == owner_);
         owner_ := _owner;
-        return true;
     };
 
     public query func getUserTransactionAmount(a: Principal) : async Nat {
@@ -365,13 +361,14 @@ shared(msg) actor class Token(
     };
 
     public query func getUserApprovals(who : Principal) : async [(Principal, Nat)] {
-        var size : Nat = 0;
-        if (Option.isSome(allowances.get(who))) {
-            let allowance_who = Option.unwrap(allowances.get(who));
-            return Iter.toArray(allowance_who.entries());
-        } else {
-            return [];
-        };
+        switch (allowances.get(who)) {
+            case (?allowance_who) {
+                return Iter.toArray(allowance_who.entries());
+            };
+            case (_) {
+                return [];
+            };
+        }
     };
 
     /*
