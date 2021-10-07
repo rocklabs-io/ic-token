@@ -140,7 +140,7 @@ shared(msg) actor class Token(
             return #err(#InsufficientBalance);
         };
         _chargeFee(msg.caller, fee);
-        _transfer(msg.caller, to, value - fee);
+        _transfer(msg.caller, to, value);
         let txid = addRecord(null, #transfer, msg.caller, to, value, fee, Time.now());
         return #ok(txid);
     };
@@ -153,8 +153,8 @@ shared(msg) actor class Token(
         let allowed : Nat = _allowance(from, msg.caller);
         if (allowed < value) { return #err(#InsufficientAllowance); };
         _chargeFee(from, fee);
-        _transfer(from, to, value - fee);
-        let allowed_new : Nat = allowed - value;
+        _transfer(from, to, value);
+        let allowed_new : Nat = allowed - value - fee;
         if (allowed_new != 0) {
             let allowance_from = Option.unwrap(allowances.get(from));
             allowance_from.put(msg.caller, allowed_new);
@@ -176,6 +176,7 @@ shared(msg) actor class Token(
     public shared(msg) func approve(spender: Principal, value: Nat) : async TxReceipt {
         if(_balanceOf(msg.caller) < fee) { return #err(#InsufficientBalance); };
         _chargeFee(msg.caller, fee);
+        let v = value + fee;
         if (value == 0 and Option.isSome(allowances.get(msg.caller))) {
             let allowance_caller = Option.unwrap(allowances.get(msg.caller));
             allowance_caller.delete(spender);
@@ -183,14 +184,14 @@ shared(msg) actor class Token(
             else { allowances.put(msg.caller, allowance_caller); };
         } else if (value != 0 and Option.isNull(allowances.get(msg.caller))) {
             var temp = HashMap.HashMap<Principal, Nat>(1, Principal.equal, Principal.hash);
-            temp.put(spender, value);
+            temp.put(spender, v);
             allowances.put(msg.caller, temp);
         } else if (value != 0 and Option.isSome(allowances.get(msg.caller))) {
             let allowance_caller = Option.unwrap(allowances.get(msg.caller));
-            allowance_caller.put(spender, value);
+            allowance_caller.put(spender, v);
             allowances.put(msg.caller, allowance_caller);
         };
-        let txid = addRecord(null, #approve, msg.caller, spender, value, fee, Time.now());
+        let txid = addRecord(null, #approve, msg.caller, spender, v, fee, Time.now());
         return #ok(txid);
     };
 
