@@ -1,6 +1,6 @@
 ## Introduction
 
-Token standard is essential for the Internet Computer ecosystem, especially for the decentralized finance(DeFi) system. We implemented an ERC-20 style token standard in both Motoko and Rust named DIP20
+Token standard is essential for the Internet Computer ecosystem, especially for the decentralized finance(DeFi) system. We implemented an ERC-20 style token standard in both Motoko and Rust, the standard is named DIP20.
 
 You can find the interface descriptions in the [specification file](./spec.md).
 
