@@ -33,6 +33,8 @@ A standard token interface is a basic building block for many applications on th
        #InsufficientBalance;
        #InsufficientAllowance;
    }>;
+   
+   when the Transaction status is #failed, an error should be returned instead of a transaction id
 
 3. TxRecord: history transaction record
 
@@ -43,6 +45,10 @@ A standard token interface is a basic building block for many applications on th
        #transfer;
        #transferFrom;
    };
+   public type TransactionStatus = {
+       #succeeded;
+       #failed;
+   };
    public type TxRecord = {
        caller: ?Principal;
        op: Operation; // operation type
@@ -52,6 +58,7 @@ A standard token interface is a basic building block for many applications on th
        amount: Nat;
        fee: Nat;
        timestamp: Time.Time;
+       status: TransactionStatus;
    };
    ```
 
