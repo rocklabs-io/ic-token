@@ -28,6 +28,7 @@ shared(msg) actor class Token(
     _fee: Nat
     ) {
     type Operation = Types.Operation;
+    type TransactionStatus = Types.TransactionStatus;
     type TxRecord = Types.TxRecord;
     type Metadata = {
         logo : Text;
@@ -67,12 +68,13 @@ shared(msg) actor class Token(
         amount = totalSupply_;
         fee = 0;
         timestamp = Time.now();
+        status = #succeeded;
     };
     private stable var ops : [TxRecord] = [genesis];
 
     private func addRecord(
         caller: ?Principal, op: Operation, from: Principal, to: Principal, amount: Nat,
-        fee: Nat, timestamp: Time.Time
+        fee: Nat, timestamp: Time.Time, status: TransactionStatus
     ): Nat {
         let index = ops.size();
         let o : TxRecord = {
@@ -84,6 +86,7 @@ shared(msg) actor class Token(
             amount = amount;
             fee = fee;
             timestamp = timestamp;
+            status = status;
         };
         ops := Array.append(ops, [o]);
         return index;
@@ -141,7 +144,7 @@ shared(msg) actor class Token(
         };
         _chargeFee(msg.caller, fee);
         _transfer(msg.caller, to, value);
-        let txid = addRecord(null, #transfer, msg.caller, to, value, fee, Time.now());
+        let txid = addRecord(null, #transfer, msg.caller, to, value, fee, Time.now(), #succeeded);
         return #ok(txid);
     };
 
@@ -167,7 +170,7 @@ shared(msg) actor class Token(
                 else { allowances.put(from, allowance_from); };
             };
         };
-        let txid = addRecord(?msg.caller, #transferFrom, from, to, value, fee, Time.now());
+        let txid = addRecord(?msg.caller, #transferFrom, from, to, value, fee, Time.now(), #succeeded);
         return #ok(txid);
     };
 
@@ -191,7 +194,7 @@ shared(msg) actor class Token(
             allowance_caller.put(spender, v);
             allowances.put(msg.caller, allowance_caller);
         };
-        let txid = addRecord(null, #approve, msg.caller, spender, v, fee, Time.now());
+        let txid = addRecord(null, #approve, msg.caller, spender, v, fee, Time.now(), #succeeded);
         return #ok(txid);
     };
 

@@ -17,6 +17,11 @@ module {
         #transferFrom;
         #approve;
     };
+    public type TransactionStatus = {
+        #succeeded;
+        #inprogress;
+        #failed;
+    };
     /// Update call operation record fields
     public type TxRecord = {
         caller: ?Principal;
@@ -27,6 +32,7 @@ module {
         amount: Nat;
         fee: Nat;
         timestamp: Time.Time;
+        status: TransactionStatus;
     };
 
     public func unwrap<T>(x : ?T) : T =
