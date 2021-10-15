@@ -172,11 +172,11 @@ fn _charge_fee(user: Principal, fee_to: Principal, fee: u64) {
 fn transfer(to: Principal, value: u64) -> TxReceipt {
     let from = api::caller();
     let metadata = storage::get::<Metadata>();
-    if balance_of(from) < value || value < metadata.fee {
+    if balance_of(from) < value + metadata.fee {
         return Err(TxError::InsufficientBalance);
     }
     _charge_fee(from, metadata.fee_to, metadata.fee);
-    _transfer(from, to, value - metadata.fee);
+    _transfer(from, to, value);
     let txid = add_record(
         None,
         Operation::Transfer,
@@ -195,47 +195,46 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
     let owner = api::caller();
     let from_allowance = allowance(from, owner);
     let metadata = storage::get::<Metadata>();
-    if from_allowance < value {
-        Err(TxError::InsufficientAllowance)
-    } else {
-        let from_balance = balance_of(from);
-        if from_balance < value || value < metadata.fee {
-            return Err(TxError::InsufficientBalance);
-        }
-        _charge_fee(from, metadata.fee_to, metadata.fee);
-        _transfer(from, to, value);
-        let allowances = storage::get_mut::<Allowances>();
-        match allowances.get(&from) {
-            Some(inner) => {
-                let result = inner.get(&owner).unwrap().clone();
-                let mut temp = inner.clone();
-                if result - value != 0 {
-                    temp.insert(owner, result - value);
-                    allowances.insert(from, temp);
+    if from_allowance < value + metadata.fee {
+        return Err(TxError::InsufficientAllowance);
+    } 
+    let from_balance = balance_of(from);
+    if from_balance < value + metadata.fee {
+        return Err(TxError::InsufficientBalance);
+    }
+    _charge_fee(from, metadata.fee_to, metadata.fee);
+    _transfer(from, to, value);
+    let allowances = storage::get_mut::<Allowances>();
+    match allowances.get(&from) {
+        Some(inner) => {
+            let result = inner.get(&owner).unwrap().clone();
+            let mut temp = inner.clone();
+            if result - value - metadata.fee != 0 {
+                temp.insert(owner, result - value - metadata.fee);
+                allowances.insert(from, temp);
+            } else {
+                temp.remove(&owner);
+                if temp.len() == 0 {
+                    allowances.remove(&from);
                 } else {
-                    temp.remove(&owner);
-                    if temp.len() == 0 {
-                        allowances.remove(&from);
-                    } else {
-                        allowances.insert(from, temp);
-                    }
+                    allowances.insert(from, temp);
                 }
             }
-            None => {
-                assert!(false);
-            }
         }
-        let txid = add_record(
-            Some(owner),
-            Operation::TransferFrom,
-            from,
-            to,
-            value,
-            metadata.fee,
-            api::time(),
-        );
-        Ok(txid)
+        None => {
+            assert!(false);
+        }
     }
+    let txid = add_record(
+        Some(owner),
+        Operation::TransferFrom,
+        from,
+        to,
+        value,
+        metadata.fee,
+        api::time(),
+    );
+    Ok(txid)
 }
 
 #[update(name = "approve")]
@@ -247,12 +246,13 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
         return Err(TxError::InsufficientBalance);
     }
     _charge_fee(owner, metadata.fee_to, metadata.fee);
+    let v = value + metadata.fee;
     let allowances = storage::get_mut::<Allowances>();
     match allowances.get(&owner) {
         Some(inner) => {
             let mut temp = inner.clone();
-            if value != 0 {
-                temp.insert(spender, value);
+            if v != 0 {
+                temp.insert(spender, v);
                 allowances.insert(owner, temp);
             } else {
                 temp.remove(&spender);
@@ -264,9 +264,9 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
             }
         }
         None => {
-            if value != 0 {
+            if v != 0 {
                 let mut inner = HashMap::new();
-                inner.insert(spender, value);
+                inner.insert(spender, v);
                 let allowances = storage::get_mut::<Allowances>();
                 allowances.insert(owner, inner);
             }
@@ -277,7 +277,7 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
         Operation::Approve,
         owner,
         spender,
-        value,
+        v,
         metadata.fee,
         api::time(),
     );
