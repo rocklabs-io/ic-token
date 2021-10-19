@@ -6,13 +6,13 @@
 * Stability  : Experimental
 */
 use candid::{candid_method, CandidType, Deserialize};
-use ic_cdk::{api, export::Principal, storage};
+use ic_kit::{ic , Principal};
 use ic_cdk_macros::*;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::string::String;
 
-#[derive(Deserialize, CandidType, Clone)]
+#[derive(Deserialize, CandidType, Clone, Debug)]
 struct Metadata {
     logo: String,
     name: String,
@@ -61,7 +61,7 @@ struct UpgradePayload {
     allow: Vec<(Principal, Vec<(Principal, u64)>)>,
 }
 
-#[derive(CandidType, Clone, Copy)]
+#[derive(CandidType, Clone, Copy, Debug)]
 enum Operation {
     Mint,
     Transfer,
@@ -69,7 +69,7 @@ enum Operation {
     Approve,
 }
 
-#[derive(CandidType, Clone)]
+#[derive(CandidType, Clone, Debug)]
 struct OpRecord {
     caller: Option<Principal>,
     op: Operation,
@@ -97,7 +97,7 @@ fn add_record(
     fee: u64,
     timestamp: u64,
 ) -> usize {
-    let ops = storage::get_mut::<Ops>();
+    let ops = ic::get_mut::<Ops>();
     let index = ops.len();
     ops.push(OpRecord {
         caller,
@@ -123,7 +123,7 @@ fn init(
     owner: Principal,
     fee: u64,
 ) {
-    let metadata = storage::get_mut::<Metadata>();
+    let metadata = ic::get_mut::<Metadata>();
     metadata.logo = logo;
     metadata.name = name;
     metadata.symbol = symbol;
@@ -131,7 +131,7 @@ fn init(
     metadata.total_supply = total_supply;
     metadata.owner = owner;
     metadata.fee = fee;
-    let balances = storage::get_mut::<Balances>();
+    let balances = ic::get_mut::<Balances>();
     balances.insert(owner, total_supply);
     let _ = add_record(
         Some(owner),
@@ -140,12 +140,12 @@ fn init(
         owner,
         total_supply,
         0,
-        api::time(),
+        ic::time(),
     );
 }
 
 fn _transfer(from: Principal, to: Principal, value: u64) {
-    let balances = storage::get_mut::<Balances>();
+    let balances = ic::get_mut::<Balances>();
     let from_balance = balance_of(from);
     let from_balance_new = from_balance - value;
     if from_balance_new != 0 {
@@ -161,7 +161,7 @@ fn _transfer(from: Principal, to: Principal, value: u64) {
 }
 
 fn _charge_fee(user: Principal, fee_to: Principal, fee: u64) {
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     if metadata.fee > 0 {
         _transfer(user, fee_to, fee);
     }
@@ -170,8 +170,8 @@ fn _charge_fee(user: Principal, fee_to: Principal, fee: u64) {
 #[update(name = "transfer")]
 #[candid_method(update)]
 fn transfer(to: Principal, value: u64) -> TxReceipt {
-    let from = api::caller();
-    let metadata = storage::get::<Metadata>();
+    let from = ic::caller();
+    let metadata = ic::get::<Metadata>();
     if balance_of(from) < value + metadata.fee {
         return Err(TxError::InsufficientBalance);
     }
@@ -184,7 +184,7 @@ fn transfer(to: Principal, value: u64) -> TxReceipt {
         to,
         value,
         metadata.fee,
-        api::time(),
+        ic::time(),
     );
     Ok(txid)
 }
@@ -192,9 +192,9 @@ fn transfer(to: Principal, value: u64) -> TxReceipt {
 #[update(name = "transferFrom")]
 #[candid_method(update, rename = "transferFrom")]
 fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
-    let owner = api::caller();
+    let owner = ic::caller();
     let from_allowance = allowance(from, owner);
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     if from_allowance < value + metadata.fee {
         return Err(TxError::InsufficientAllowance);
     } 
@@ -204,7 +204,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
     }
     _charge_fee(from, metadata.fee_to, metadata.fee);
     _transfer(from, to, value);
-    let allowances = storage::get_mut::<Allowances>();
+    let allowances = ic::get_mut::<Allowances>();
     match allowances.get(&from) {
         Some(inner) => {
             let result = inner.get(&owner).unwrap().clone();
@@ -232,7 +232,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
         to,
         value,
         metadata.fee,
-        api::time(),
+        ic::time(),
     );
     Ok(txid)
 }
@@ -240,14 +240,14 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
 #[update(name = "approve")]
 #[candid_method(update)]
 fn approve(spender: Principal, value: u64) -> TxReceipt {
-    let owner = api::caller();
-    let metadata = storage::get::<Metadata>();
+    let owner = ic::caller();
+    let metadata = ic::get::<Metadata>();
     if balance_of(owner) < metadata.fee {
         return Err(TxError::InsufficientBalance);
     }
     _charge_fee(owner, metadata.fee_to, metadata.fee);
     let v = value + metadata.fee;
-    let allowances = storage::get_mut::<Allowances>();
+    let allowances = ic::get_mut::<Allowances>();
     match allowances.get(&owner) {
         Some(inner) => {
             let mut temp = inner.clone();
@@ -267,7 +267,7 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
             if v != 0 {
                 let mut inner = HashMap::new();
                 inner.insert(spender, v);
-                let allowances = storage::get_mut::<Allowances>();
+                let allowances = ic::get_mut::<Allowances>();
                 allowances.insert(owner, inner);
             }
         }
@@ -279,7 +279,7 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
         spender,
         v,
         metadata.fee,
-        api::time(),
+        ic::time(),
     );
     Ok(txid)
 }
@@ -287,39 +287,39 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
 #[update(name = "setLogo")]
 #[candid_method(update, rename = "setLogo")]
 fn set_logo(logo: String) {
-    let metadata = storage::get_mut::<Metadata>();
-    assert_eq!(api::caller(), metadata.owner);
+    let metadata = ic::get_mut::<Metadata>();
+    assert_eq!(ic::caller(), metadata.owner);
     metadata.logo = logo;
 }
 
 #[update(name = "setFee")]
 #[candid_method(update, rename = "setFee")]
 fn set_fee(fee: u64) {
-    let metadata = storage::get_mut::<Metadata>();
-    assert_eq!(api::caller(), metadata.owner);
+    let metadata = ic::get_mut::<Metadata>();
+    assert_eq!(ic::caller(), metadata.owner);
     metadata.fee = fee;
 }
 
 #[update(name = "setFeeTo")]
 #[candid_method(update, rename = "setFeeTo")]
 fn set_fee_to(fee_to: Principal) {
-    let metadata = storage::get_mut::<Metadata>();
-    assert_eq!(api::caller(), metadata.owner);
+    let metadata = ic::get_mut::<Metadata>();
+    assert_eq!(ic::caller(), metadata.owner);
     metadata.fee_to = fee_to;
 }
 
 #[update(name = "setOwner")]
 #[candid_method(update, rename = "setOwner")]
 fn set_owner(owner: Principal) {
-    let metadata = storage::get_mut::<Metadata>();
-    assert_eq!(api::caller(), metadata.owner);
+    let metadata = ic::get_mut::<Metadata>();
+    assert_eq!(ic::caller(), metadata.owner);
     metadata.owner = owner;
 }
 
 #[query(name = "balanceOf")]
 #[candid_method(query, rename = "balanceOf")]
 fn balance_of(id: Principal) -> u64 {
-    let balances = storage::get::<Balances>();
+    let balances = ic::get::<Balances>();
     match balances.get(&id) {
         Some(balance) => *balance,
         None => 0,
@@ -329,7 +329,7 @@ fn balance_of(id: Principal) -> u64 {
 #[query(name = "allowance")]
 #[candid_method(query)]
 fn allowance(owner: Principal, spender: Principal) -> u64 {
-    let allowances = storage::get::<Allowances>();
+    let allowances = ic::get::<Allowances>();
     match allowances.get(&owner) {
         Some(inner) => match inner.get(&spender) {
             Some(value) => *value,
@@ -342,62 +342,62 @@ fn allowance(owner: Principal, spender: Principal) -> u64 {
 #[query(name = "getLogo")]
 #[candid_method(query, rename = "getLogo")]
 fn get_logo() -> String {
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     metadata.logo.clone()
 }
 
 #[query(name = "name")]
 #[candid_method(query)]
 fn name() -> String {
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     metadata.name.clone()
 }
 
 #[query(name = "symbol")]
 #[candid_method(query)]
 fn symbol() -> String {
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     metadata.symbol.clone()
 }
 
 #[query(name = "decimals")]
 #[candid_method(query)]
 fn decimals() -> u8 {
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     metadata.decimals
 }
 
 #[query(name = "totalSupply")]
 #[candid_method(query, rename = "totalSupply")]
 fn total_supply() -> u64 {
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     metadata.total_supply
 }
 
 #[query(name = "owner")]
 #[candid_method(query)]
 fn owner() -> Principal {
-    let metadata = storage::get::<Metadata>();
+    let metadata = ic::get::<Metadata>();
     metadata.owner
 }
 
 #[query(name = "getMetadta")]
 #[candid_method(query, rename = "getMetadta")]
 fn get_metadata() -> Metadata {
-    storage::get::<Metadata>().clone()
+    ic::get::<Metadata>().clone()
 }
 
 #[query(name = "historySize")]
 #[candid_method(query, rename = "historySize")]
 fn history_size() -> usize {
-    let ops = storage::get::<Ops>();
+    let ops = ic::get::<Ops>();
     ops.len()
 }
 
 #[query(name = "getTransaction")]
 #[candid_method(query, rename = "getTransaction")]
 fn get_transaction(index: usize) -> OpRecord {
-    let ops = storage::get::<Ops>();
+    let ops = ic::get::<Ops>();
     ops[index].clone()
 }
 
@@ -405,7 +405,7 @@ fn get_transaction(index: usize) -> OpRecord {
 #[candid_method(query, rename = "getTransactions")]
 fn get_transactions(start: usize, limit: usize) -> Vec<OpRecord> {
     let mut ret: Vec<OpRecord> = Vec::new();
-    let ops = storage::get::<Ops>();
+    let ops = ic::get::<Ops>();
     let mut i = start;
     while i < start + limit && i < ops.len() {
         ret.push(ops[i].clone());
@@ -418,7 +418,7 @@ fn get_transactions(start: usize, limit: usize) -> Vec<OpRecord> {
 #[candid_method(query, rename = "getUserTransactionAmount")]
 fn get_user_transaction_amount(a: Principal) -> usize {
     let mut res = 0;
-    let ops = storage::get::<Ops>();
+    let ops = ic::get::<Ops>();
     for i in ops.clone() {
         if i.caller == Some(a) || i.from == a || i.to == a {
             res += 1;
@@ -430,7 +430,7 @@ fn get_user_transaction_amount(a: Principal) -> usize {
 #[query(name = "getUserTransactions")]
 #[candid_method(query, rename = "getUserTransactions")]
 fn get_user_transactions(a: Principal, start: usize, limit: usize) -> Vec<OpRecord> {
-    let ops = storage::get::<Ops>();
+    let ops = ic::get::<Ops>();
     let mut res: Vec<OpRecord> = Vec::new();
     let mut index: usize = 0;
     for i in ops.clone() {
@@ -447,9 +447,9 @@ fn get_user_transactions(a: Principal, start: usize, limit: usize) -> Vec<OpReco
 #[query(name = "getTokenInfo")]
 #[candid_method(query, rename = "getTokenInfo")]
 fn get_token_info() -> TokenInfo {
-    let metadata = storage::get::<Metadata>().clone();
-    let ops = storage::get::<Ops>();
-    let balance = storage::get::<Balances>();
+    let metadata = ic::get::<Metadata>().clone();
+    let ops = ic::get::<Ops>();
+    let balance = ic::get::<Balances>();
 
     return TokenInfo {
         metadata: metadata.clone(),
@@ -457,7 +457,7 @@ fn get_token_info() -> TokenInfo {
         history_size: ops.len(),
         deploy_time: ops[0].timestamp,
         holder_number: balance.len(),
-        cycles: api::canister_balance(),
+        cycles: ic::balance(),
     };
 }
 
@@ -465,7 +465,7 @@ fn get_token_info() -> TokenInfo {
 #[candid_method(query, rename = "getHolders")]
 fn get_holders(start: usize, limit: usize) -> Vec<(Principal, u64)> {
     let mut balance = Vec::new();
-    for (&k, &v) in storage::get::<Balances>().iter() {
+    for (&k, &v) in ic::get::<Balances>().iter() {
         balance.push((k, v));
     }
     balance.sort_by(|a, b| b.1.cmp(&a.1));
@@ -481,7 +481,7 @@ fn get_holders(start: usize, limit: usize) -> Vec<(Principal, u64)> {
 #[candid_method(query, rename = "getAllowanceSize")]
 fn get_allowance_size() -> usize {
     let mut size = 0;
-    let allowances = storage::get::<Allowances>();
+    let allowances = ic::get::<Allowances>();
     for (_, v) in allowances.iter() {
         size += v.len();
     }
@@ -491,7 +491,7 @@ fn get_allowance_size() -> usize {
 #[query(name = "getUserApprovals")]
 #[candid_method(query, rename = "getUserApprovals")]
 fn get_user_approvals(who: Principal) -> Vec<(Principal, u64)> {
-    let allowances = storage::get::<Allowances>();
+    let allowances = ic::get::<Allowances>();
     match allowances.get(&who) {
         Some(allow) => return Vec::from_iter(allow.clone().into_iter()),
         None => return Vec::new(),
@@ -510,14 +510,14 @@ fn main() {
 // TODO: fix upgrade functions
 #[pre_upgrade]
 fn pre_upgrade() {
-    let metadata = storage::get::<Metadata>().clone();
+    let metadata = ic::get::<Metadata>().clone();
     let mut balance = Vec::new();
     // let mut allow: Vec<(Principal, Vec<(Principal, u64)>)> = Vec::new();
     let mut allow = Vec::new();
-    for (&k, &v) in storage::get::<Balances>().iter() {
+    for (&k, &v) in ic::get::<Balances>().iter() {
         balance.push((k, v));
     }
-    for (k, v) in storage::get::<Allowances>().iter() {
+    for (k, v) in ic::get::<Allowances>().iter() {
         let mut item = Vec::new();
         for (&a, &b) in v.iter() {
             item.push((a, b));
@@ -529,24 +529,55 @@ fn pre_upgrade() {
         balance,
         allow,
     };
-    storage::stable_save((up,)).unwrap();
+    ic::stable_store((up,)).unwrap();
 }
 
 #[post_upgrade]
 fn post_upgrade() {
     // There can only be one value in stable memory, currently. otherwise, lifetime error.
     // https://docs.rs/ic-cdk/0.3.0/ic_cdk/storage/fn.stable_restore.html
-    let (down,): (UpgradePayload,) = storage::stable_restore().unwrap();
-    let metadata = storage::get_mut::<Metadata>();
+    let (down,): (UpgradePayload,) = ic::stable_restore().unwrap();
+    let metadata = ic::get_mut::<Metadata>();
     *metadata = down.metadata;
     for (k, v) in down.balance {
-        storage::get_mut::<Balances>().insert(k, v);
+        ic::get_mut::<Balances>().insert(k, v);
     }
     for (k, v) in down.allow {
         let mut inner = HashMap::new();
         for (a, b) in v {
             inner.insert(a, b);
         }
-        storage::get_mut::<Allowances>().insert(k, inner);
+        ic::get_mut::<Allowances>().insert(k, inner);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ic_kit::{mock_principals, MockContext};
+
+    fn initialize_tests() {
+      init(
+        String::from("logo token"),
+        String::from("token"),
+        String::from("TOKEN"),
+        2,
+        1_000,
+        mock_principals::alice(),
+        1,
+      );
+    }
+
+    #[test]
+    fn initialization() {
+      MockContext::new()
+      .inject();
+
+      initialize_tests();
+
+      let metadata = ic::get::<Metadata>();
+      let ops = ic::get::<Ops>();
+      println!("initialization {:?}", metadata);
+      println!("initialization {:?}", ops);
     }
 }
