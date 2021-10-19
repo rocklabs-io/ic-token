@@ -24,7 +24,7 @@ struct Metadata {
     fee_to: Principal,
 }
 
-#[derive(Deserialize, CandidType, Clone)]
+#[derive(Deserialize, CandidType, Clone, Debug)]
 struct TokenInfo {
     metadata: Metadata,
     fee_to: Principal,
@@ -131,6 +131,7 @@ fn init(
     metadata.total_supply = total_supply;
     metadata.owner = owner;
     metadata.fee = fee;
+    metadata.fee_to = owner;
     let balances = ic::get_mut::<Balances>();
     balances.insert(owner, total_supply);
     let _ = add_record(
@@ -558,7 +559,7 @@ mod tests {
 
     fn initialize_tests() {
       init(
-        String::from("logo token"),
+        String::from("logo"),
         String::from("token"),
         String::from("TOKEN"),
         2,
@@ -571,13 +572,34 @@ mod tests {
     #[test]
     fn initialization() {
       MockContext::new()
+      .with_balance(100_000)
       .inject();
 
       initialize_tests();
 
-      let metadata = ic::get::<Metadata>();
-      let ops = ic::get::<Ops>();
-      println!("initialization {:?}", metadata);
-      println!("initialization {:?}", ops);
+      assert_eq!(balance_of(mock_principals::alice()), 1_000, "balanceOf did not return the correct value");
+      assert_eq!(total_supply(), 1_000, "totalSupply did not return the correct value");
+      assert_eq!(symbol(), String::from("TOKEN"), "symbol did not return the correct value");
+      assert_eq!(owner(), mock_principals::alice(), "owner did not return the correct value");
+      assert_eq!(name(), String::from("token"), "name did not return the correct value");
+      assert_eq!(get_logo(), String::from("logo"), "getLogo did not return the correct value");
+      assert_eq!(decimals(), 2, "decimals did not return the correct value");
+      
+      let token_info = get_token_info();
+      assert_eq!(token_info.fee_to, mock_principals::alice(), "tokenInfo.fee_to did not return the correct value");
+      assert_eq!(token_info.history_size, 1, "tokenInfo.history_size did not return the correct value");
+      assert!(token_info.deploy_time > 0, "tokenInfo.deploy_time did not return the correct value");
+      assert_eq!(token_info.holder_number, 1, "tokenInfo.holder_number did not return the correct value");
+      assert_eq!(token_info.cycles, 100_000, "tokenInfo.cycles did not return the correct value");
+
+      let metadata = get_metadata();
+      assert_eq!(metadata.total_supply, 1_000, "metadata.total_supply did not return the correct value");
+      assert_eq!(metadata.symbol, String::from("TOKEN"), "metadata.symbol did not return the correct value");
+      assert_eq!(metadata.owner, mock_principals::alice(), "metadata.owner did not return the correct value");
+      assert_eq!(metadata.name, String::from("token"), "metadata.name did not return the correct value");
+      assert_eq!(metadata.logo, String::from("logo"), "metadata.logo did not return the correct value");
+      assert_eq!(metadata.decimals, 2, "metadata.decimals did not return the correct value");
+      assert_eq!(metadata.fee, 1, "metadata.fee did not return the correct value");
+      assert_eq!(metadata.fee_to, mock_principals::alice(), "metadata.fee_to did not return the correct value");
     }
 }
