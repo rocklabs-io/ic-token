@@ -33,6 +33,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert-panic"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763b2b82aee23fe46c14c792470080c26538396e9ea589f548298f26b22d7f41"
+
+[[package]]
 name = "async-attributes"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1223,6 +1229,7 @@ dependencies = [
 name = "token"
 version = "0.1.0"
 dependencies = [
+ "assert-panic",
  "async-std",
  "candid",
  "ic-cdk",

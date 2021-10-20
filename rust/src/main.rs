@@ -61,7 +61,7 @@ struct UpgradePayload {
     allow: Vec<(Principal, Vec<(Principal, u64)>)>,
 }
 
-#[derive(CandidType, Clone, Copy, Debug)]
+#[derive(CandidType, Clone, Copy, Debug, PartialEq)]
 enum Operation {
     Mint,
     Transfer,
@@ -81,7 +81,7 @@ struct OpRecord {
     timestamp: u64,
 }
 
-#[derive(CandidType)]
+#[derive(CandidType, Debug, PartialEq)]
 enum TxError {
     InsufficientBalance,
     InsufficientAllowance,
@@ -131,7 +131,6 @@ fn init(
     metadata.total_supply = total_supply;
     metadata.owner = owner;
     metadata.fee = fee;
-    metadata.fee_to = owner;
     let balances = ic::get_mut::<Balances>();
     balances.insert(owner, total_supply);
     let _ = add_record(
@@ -555,7 +554,8 @@ fn post_upgrade() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ic_kit::{mock_principals, MockContext};
+    use ic_kit::{mock_principals::{alice, bob, john}, MockContext};
+    use assert_panic::assert_panic;
 
     fn initialize_tests() {
       init(
@@ -564,29 +564,33 @@ mod tests {
         String::from("TOKEN"),
         2,
         1_000,
-        mock_principals::alice(),
+        alice(),
         1,
       );
     }
 
     #[test]
-    fn initialization() {
+    fn functionality_test() {
       MockContext::new()
       .with_balance(100_000)
+      .with_caller(alice())
       .inject();
 
       initialize_tests();
 
-      assert_eq!(balance_of(mock_principals::alice()), 1_000, "balanceOf did not return the correct value");
+      // initialization tests
+      assert_eq!(balance_of(alice()), 1_000, "balanceOf did not return the correct value");
       assert_eq!(total_supply(), 1_000, "totalSupply did not return the correct value");
       assert_eq!(symbol(), String::from("TOKEN"), "symbol did not return the correct value");
-      assert_eq!(owner(), mock_principals::alice(), "owner did not return the correct value");
+      assert_eq!(owner(), alice(), "owner did not return the correct value");
       assert_eq!(name(), String::from("token"), "name did not return the correct value");
       assert_eq!(get_logo(), String::from("logo"), "getLogo did not return the correct value");
       assert_eq!(decimals(), 2, "decimals did not return the correct value");
-      
+      assert_eq!(get_holders(0, 10).len(), 1, "get_holders returned the correct amount of holders after initialization");
+      assert_eq!(get_transaction(0).op, Operation::Mint, "get_transaction returnded a Mint operation");
+
       let token_info = get_token_info();
-      assert_eq!(token_info.fee_to, mock_principals::alice(), "tokenInfo.fee_to did not return the correct value");
+      assert_eq!(token_info.fee_to, Principal::anonymous(), "tokenInfo.fee_to did not return the correct value");
       assert_eq!(token_info.history_size, 1, "tokenInfo.history_size did not return the correct value");
       assert!(token_info.deploy_time > 0, "tokenInfo.deploy_time did not return the correct value");
       assert_eq!(token_info.holder_number, 1, "tokenInfo.holder_number did not return the correct value");
@@ -595,11 +599,91 @@ mod tests {
       let metadata = get_metadata();
       assert_eq!(metadata.total_supply, 1_000, "metadata.total_supply did not return the correct value");
       assert_eq!(metadata.symbol, String::from("TOKEN"), "metadata.symbol did not return the correct value");
-      assert_eq!(metadata.owner, mock_principals::alice(), "metadata.owner did not return the correct value");
+      // assert_eq!(metadata.owner, alice(), "metadata.owner did not return the correct value");
       assert_eq!(metadata.name, String::from("token"), "metadata.name did not return the correct value");
       assert_eq!(metadata.logo, String::from("logo"), "metadata.logo did not return the correct value");
       assert_eq!(metadata.decimals, 2, "metadata.decimals did not return the correct value");
       assert_eq!(metadata.fee, 1, "metadata.fee did not return the correct value");
-      assert_eq!(metadata.fee_to, mock_principals::alice(), "metadata.fee_to did not return the correct value");
+      assert_eq!(metadata.fee_to, Principal::anonymous(), "metadata.fee_to did not return the correct value");
+
+      // set fee test
+      set_fee(2);
+      assert_eq!(2, get_metadata().fee ,"Failed to update the fee_to");
+
+      // set fee_to test
+      set_fee_to(john());
+      assert_eq!(john(), get_metadata().fee_to, "Failed to set fee");
+      set_fee_to(Principal::anonymous());
+
+      // set logo
+      set_logo(String::from("new_logo"));
+      assert_eq!("new_logo", get_logo());
+
+      // test transfers
+      let transfer_alice_balance_expected = balance_of(alice()) - 10 - get_metadata().fee;
+      let transfer_bob_balance_expected = balance_of(bob()) + 10;
+      let transfer_john_balance_expected = balance_of(john());
+      let transfer_transaction_amount_expected = get_transactions(0, 10).len() + 1;
+      let transfer_user_transaction_amount_expected = get_user_transaction_amount(alice()) + 1;
+      transfer(bob(), 10).map_err(|err| println!("{:?}", err)).ok();
+
+      assert_eq!(balance_of(alice()), transfer_alice_balance_expected, "Transfer did not transfer the expected amount to Alice");
+      assert_eq!(balance_of(bob()), transfer_bob_balance_expected, "Transfer did not transfer the expected amount to Bob");
+      assert_eq!(balance_of(john()), transfer_john_balance_expected, "Transfer did not transfer the expected amount to John");
+      assert_eq!(get_transactions(0, 10).len(), transfer_transaction_amount_expected, "transfer operation did not produce a transaction");
+      assert_eq!(get_user_transaction_amount(alice()), transfer_user_transaction_amount_expected, "get_user_transaction_amount returned the wrong value after a transfer");
+      assert_eq!(get_user_transactions(alice(), 0, 10).len(), transfer_user_transaction_amount_expected, "get_user_transactions returned the wrong value after a transfer");
+      assert_eq!(get_holders(0, 10).len(), 3, "get_holders returned the correct amount of holders after transfer");
+      assert_eq!(get_transaction(1).op, Operation::Transfer, "get_transaction returnded a Transfer operation");
+
+      // test allowances
+      approve(bob(), 100).map_err(|err| println!("{:?}", err)).ok();
+      assert_eq!(allowance(alice(), bob()), 100 + get_metadata().fee, "Approve did not give the correct allowance");
+      assert_eq!(get_allowance_size(), 1, "getAllowanceSize returns the correct value");
+      assert_eq!(get_user_approvals(alice()).len(), 1, "getUserApprovals not returning the correct value");
+
+      // test transfer_from
+      // inserting an allowance of Alice for Bob's balance to test transfer_from
+      let allowances = ic::get_mut::<Allowances>();
+      let mut inner = HashMap::new();
+      inner.insert(alice(), 5 + get_metadata().fee);
+      allowances.insert(bob(), inner);
+
+      let transfer_from_alice_balance_expected = balance_of(alice());
+      let transfer_from_bob_balance_expected = balance_of(bob()) - 5 - get_metadata().fee;
+      let transfer_from_john_balance_expected = balance_of(john()) + 5;
+      let transfer_from_transaction_amount_expected = get_transactions(0, 10).len() + 1;
+
+      transfer_from(bob(), john(), 5).map_err(|err| println!("{:?}", err)).ok();
+
+      assert_eq!(balance_of(alice()), transfer_from_alice_balance_expected, "transfer_from transferred the correct value for alice");
+      assert_eq!(balance_of(bob()), transfer_from_bob_balance_expected, "transfer_from transferred the correct value for bob");
+      assert_eq!(balance_of(john()), transfer_from_john_balance_expected, "transfer_from transferred the correct value for john");
+      assert_eq!(allowance(bob(), alice()), 0, "allowance has not been spent");
+      assert_eq!(get_transactions(0, 10).len(), transfer_from_transaction_amount_expected, "transfer_from operation did not produce a transaction");
+
+      // Transferring more than the balance
+      assert_eq!(transfer(alice(), 1_000_000), Err(TxError::InsufficientBalance) , "alice was able to transfer more than is allowed");
+      // Transferring more than the balance
+      assert_eq!(transfer_from(bob(), john(), 1_000_000), Err(TxError::InsufficientAllowance) , "alice was able to transfer more than is allowed");
+
+      //set owner test
+      set_owner(bob());
+      assert_eq!(bob(), owner(), "Failed to set new owner");
+    }
+
+    #[test]
+    fn permission_tests() {
+      MockContext::new()
+      .with_balance(100_000)
+      .with_caller(bob())
+      .inject();
+
+      initialize_tests();
+
+      assert_panic!(set_logo(String::from("forbidden")));
+      assert_panic!(set_fee(123));
+      assert_panic!(set_fee_to(john()));
+      assert_panic!(set_owner(bob()));
     }
 }
