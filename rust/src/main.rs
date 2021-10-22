@@ -571,7 +571,7 @@ mod tests {
 
     #[test]
     fn functionality_test() {
-      MockContext::new()
+      let ctx = MockContext::new()
       .with_balance(100_000)
       .with_caller(alice())
       .inject();
@@ -643,11 +643,9 @@ mod tests {
       assert_eq!(get_user_approvals(alice()).len(), 1, "getUserApprovals not returning the correct value");
 
       // test transfer_from
-      // inserting an allowance of Alice for Bob's balance to test transfer_from
-      let allowances = ic::get_mut::<Allowances>();
-      let mut inner = HashMap::new();
-      inner.insert(alice(), 5 + get_metadata().fee);
-      allowances.insert(bob(), inner);
+      ctx.update_caller(bob());
+      approve(alice(), 5).map_err(|err| println!("{:?}", err)).ok();
+      ctx.update_caller(alice());
 
       let transfer_from_alice_balance_expected = balance_of(alice());
       let transfer_from_bob_balance_expected = balance_of(bob()) - 5 - get_metadata().fee;
