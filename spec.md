@@ -32,6 +32,7 @@ A standard token interface is a basic building block for many applications on th
    type TxReceipt = Result.Result<Nat, {
        #InsufficientBalance;
        #InsufficientAllowance;
+       #Other;
    }>;
    
    when the Transaction status is #failed, an error should be returned instead of a transaction id
