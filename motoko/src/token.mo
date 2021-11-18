@@ -214,6 +214,10 @@ shared(msg) actor class Token(
         return totalSupply_;
     };
 
+    public query func getTokenFee() : async Nat {
+        return fee;
+    };
+
     public query func balanceOf(who: Principal) : async Nat {
         return _balanceOf(who);
     };
