@@ -13,7 +13,7 @@ module {
     /// Update call operations
     public type Operation = {
         #mint;
-		#burn;
+        #burn;
         #transfer;
         #transferFrom;
         #approve;
