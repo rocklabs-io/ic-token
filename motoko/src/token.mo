@@ -43,6 +43,7 @@ shared(msg) actor class Token(
     type TxReceipt = Result.Result<Nat, {
         #InsufficientBalance;
         #InsufficientAllowance;
+		#Unauthorized;
     }>;
 
     private stable var owner_ : Principal = _owner;
@@ -193,6 +194,28 @@ shared(msg) actor class Token(
         let txid = addRecord(null, #approve, msg.caller, spender, v, fee, Time.now(), #succeeded);
         return #ok(txid);
     };
+
+	public shared(msg) func mint(to: Principal, amount: Nat): async TxReceipt {
+		if(msg.caller != owner_) {
+			return #err(#Unauthorized);
+		};
+		let to_balance = _balanceOf(to);
+		totalSupply_ += amount;
+		balances.put(to, to_balance + amount);
+		let txid = addRecord(?msg.caller, #mint, blackhole, to, amount, 0, Time.now(), #succeeded);
+		return #ok(txid);
+	};
+
+	public shared(msg) func burn(amount: Nat): async TxReceipt {
+		let from_balance = _balanceOf(msg.caller);
+		if(from_balance < amount) {
+			return #err(#InsufficientBalance);
+		};
+		totalSupply_ -= amount;
+		balances.put(msg.caller, from_balance - amount);
+		let txid = addRecord(?msg.caller, #burn, msg.caller, blackhole, amount, 0, Time.now(), #succeeded);
+		return #ok(txid);
+	};
 
     public query func logo() : async Text {
         return logo_;
