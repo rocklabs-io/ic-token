@@ -284,6 +284,53 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
     Ok(txid)
 }
 
+#[update(name = "mint")]
+#[candid_method(update, rename = "mint")]
+fn mint(to: Principal, amount: u64) -> TxReceipt {
+    let caller = ic::caller();
+    let metadata = ic::get::<Metadata>();
+    if caller != metadata.owner {
+        return Err(TxError::Unauthorized);
+    }
+    let to_balance = balance_of(to);
+    balances.insert(to, to_balance + amount);
+    metadata.total_supply += amount;
+    
+    let txid = add_record(
+        caller,
+        Operation::Mint,
+        Principal::from_text("aaaaa-aa").unwrap(),
+        to,
+        amount,
+        0,
+        ic::time(),
+    );
+    Ok(txid)
+}
+
+#[update(name = "burn")]
+#[candid_method(update, rename = "burn")]
+fn burn(amount: u64) -> TxReceipt {
+    let caller = ic::caller();
+    let metadata = ic::get_mut::<Metadata>();
+    let caller_balance = balance_of(caller);
+    if caller_balance < amount {
+        return Err(TxError::InsufficientBalance);
+    }
+    balances.insert(caller, caller_balance - amount);
+    metadata.total_supply -= amount;
+    let txid = add_record(
+        caller,
+        Operation::Burn,
+        caller,
+        Principal::from_text("aaaaa-aa").unwrap(),
+        amount,
+        0,
+        ic::time(),
+    );
+    Ok(txid)
+}
+
 #[update(name = "setLogo")]
 #[candid_method(update, rename = "setLogo")]
 fn set_logo(logo: String) {
