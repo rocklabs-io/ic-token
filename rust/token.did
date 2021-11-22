@@ -12,13 +12,14 @@ type OpRecord = record {
   op : Operation;
   to : principal;
   fee : nat64;
+  status : TransactionStatus;
   from : principal;
   timestamp : nat64;
   caller : opt principal;
   index : nat64;
   amount : nat64;
 };
-type Operation = variant { Approve; Mint; Transfer; TransferFrom };
+type Operation = variant { Approve; Burn; Mint; Transfer; TransferFrom };
 type Result = variant { Ok : nat64; Err : TxError };
 type TokenInfo = record {
   deploy_time : nat64;
@@ -28,11 +29,17 @@ type TokenInfo = record {
   metadata : Metadata;
   cycles : nat64;
 };
-type TxError = variant { InsufficientAllowance; InsufficientBalance };
+type TransactionStatus = variant { Failed; Succeeded; Inprogress };
+type TxError = variant {
+  InsufficientAllowance;
+  InsufficientBalance;
+  Unauthorized;
+};
 service : (text, text, text, nat8, nat64, principal, nat64) -> {
   allowance : (principal, principal) -> (nat64) query;
   approve : (principal, nat64) -> (Result);
   balanceOf : (principal) -> (nat64) query;
+  burn : (nat64) -> (Result);
   decimals : () -> (nat8) query;
   getAllowanceSize : () -> (nat64) query;
   getHolders : (nat64, nat64) -> (vec record { principal; nat64 }) query;
@@ -45,6 +52,7 @@ service : (text, text, text, nat8, nat64, principal, nat64) -> {
   getUserTransactionAmount : (principal) -> (nat64) query;
   getUserTransactions : (principal, nat64, nat64) -> (vec OpRecord) query;
   historySize : () -> (nat64) query;
+  mint : (principal, nat64) -> (Result);
   name : () -> (text) query;
   owner : () -> (principal) query;
   setFee : (nat64) -> ();

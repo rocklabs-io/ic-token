@@ -64,9 +64,17 @@ struct UpgradePayload {
 #[derive(CandidType, Clone, Copy, Debug, PartialEq)]
 enum Operation {
     Mint,
+    Burn,
     Transfer,
     TransferFrom,
     Approve,
+}
+
+#[derive(CandidType, Clone, Copy, Debug, PartialEq)]
+enum TransactionStatus {
+    Succeeded,
+    Inprogress,
+    Failed,
 }
 
 #[derive(CandidType, Clone, Debug)]
@@ -79,12 +87,14 @@ struct OpRecord {
     amount: u64,
     fee: u64,
     timestamp: u64,
+    status: TransactionStatus,
 }
 
 #[derive(CandidType, Debug, PartialEq)]
 enum TxError {
     InsufficientBalance,
     InsufficientAllowance,
+    Unauthorized,
 }
 type TxReceipt = Result<usize, TxError>;
 
@@ -96,6 +106,7 @@ fn add_record(
     amount: u64,
     fee: u64,
     timestamp: u64,
+    status: TransactionStatus,
 ) -> usize {
     let ops = ic::get_mut::<Ops>();
     let index = ops.len();
@@ -108,6 +119,7 @@ fn add_record(
         amount,
         fee,
         timestamp,
+        status,
     });
     index
 }
@@ -141,6 +153,7 @@ fn init(
         total_supply,
         0,
         ic::time(),
+        TransactionStatus::Succeeded,
     );
 }
 
@@ -185,6 +198,7 @@ fn transfer(to: Principal, value: u64) -> TxReceipt {
         value,
         metadata.fee,
         ic::time(),
+        TransactionStatus::Succeeded,
     );
     Ok(txid)
 }
@@ -233,6 +247,7 @@ fn transfer_from(from: Principal, to: Principal, value: u64) -> TxReceipt {
         value,
         metadata.fee,
         ic::time(),
+        TransactionStatus::Succeeded,
     );
     Ok(txid)
 }
@@ -280,6 +295,7 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
         v,
         metadata.fee,
         ic::time(),
+        TransactionStatus::Succeeded,
     );
     Ok(txid)
 }
@@ -288,22 +304,24 @@ fn approve(spender: Principal, value: u64) -> TxReceipt {
 #[candid_method(update, rename = "mint")]
 fn mint(to: Principal, amount: u64) -> TxReceipt {
     let caller = ic::caller();
-    let metadata = ic::get::<Metadata>();
+    let metadata = ic::get_mut::<Metadata>();
     if caller != metadata.owner {
         return Err(TxError::Unauthorized);
     }
     let to_balance = balance_of(to);
+    let balances = ic::get_mut::<Balances>();
     balances.insert(to, to_balance + amount);
     metadata.total_supply += amount;
     
     let txid = add_record(
-        caller,
+        Some(caller),
         Operation::Mint,
         Principal::from_text("aaaaa-aa").unwrap(),
         to,
         amount,
         0,
         ic::time(),
+        TransactionStatus::Succeeded,
     );
     Ok(txid)
 }
@@ -317,16 +335,18 @@ fn burn(amount: u64) -> TxReceipt {
     if caller_balance < amount {
         return Err(TxError::InsufficientBalance);
     }
+    let balances = ic::get_mut::<Balances>();
     balances.insert(caller, caller_balance - amount);
     metadata.total_supply -= amount;
     let txid = add_record(
-        caller,
+        Some(caller),
         Operation::Burn,
         caller,
         Principal::from_text("aaaaa-aa").unwrap(),
         amount,
         0,
         ic::time(),
+        TransactionStatus::Succeeded,
     );
     Ok(txid)
 }
