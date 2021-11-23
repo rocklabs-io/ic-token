@@ -532,7 +532,7 @@ fn get_token_info() -> TokenInfo {
 #[candid_method(query, rename = "getHolders")]
 fn get_holders(start: usize, limit: usize) -> Vec<(Principal, Nat)> {
     let mut balance = Vec::new();
-    for (&k, &v) in ic::get::<Balances>().iter() {
+    for (k, v) in ic::get::<Balances>().clone() {
         balance.push((k, v.clone()));
     }
     balance.sort_by(|a, b| b.1.cmp(&a.1));
@@ -581,13 +581,13 @@ fn pre_upgrade() {
     let mut balance = Vec::new();
     // let mut allow: Vec<(Principal, Vec<(Principal, Nat)>)> = Vec::new();
     let mut allow = Vec::new();
-    for (&k, &v) in ic::get::<Balances>().clone().iter() {
-        balance.push((k, v.clone()));
+    for (k, v) in ic::get::<Balances>().clone() {
+        balance.push((k, v));
     }
     for (k, v) in ic::get::<Allowances>().iter() {
         let mut item = Vec::new();
-        for (&a, &b) in v.clone().iter() {
-            item.push((a, b.clone()));
+        for (a, b) in v.clone() {
+            item.push((a, b));
         }
         allow.push((*k, item));
     }

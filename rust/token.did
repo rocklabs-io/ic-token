@@ -1,23 +1,23 @@
 type Metadata = record {
-  fee : nat64;
+  fee : nat;
   decimals : nat8;
   fee_to : principal;
   owner : principal;
   logo : text;
   name : text;
-  total_supply : nat64;
+  total_supply : nat;
   symbol : text;
 };
 type OpRecord = record {
   op : Operation;
   to : principal;
-  fee : nat64;
+  fee : nat;
   status : TransactionStatus;
   from : principal;
   timestamp : nat64;
   caller : opt principal;
   index : nat64;
-  amount : nat64;
+  amount : nat;
 };
 type Operation = variant { Approve; Burn; Mint; Transfer; TransferFrom };
 type Result = variant { Ok : nat64; Err : TxError };
@@ -35,32 +35,32 @@ type TxError = variant {
   InsufficientBalance;
   Unauthorized;
 };
-service : (text, text, text, nat8, nat64, principal, nat64) -> {
-  allowance : (principal, principal) -> (nat64) query;
-  approve : (principal, nat64) -> (Result);
-  balanceOf : (principal) -> (nat64) query;
-  burn : (nat64) -> (Result);
+service : (text, text, text, nat8, nat, principal, nat) -> {
+  allowance : (principal, principal) -> (nat) query;
+  approve : (principal, nat) -> (Result);
+  balanceOf : (principal) -> (nat) query;
+  burn : (nat) -> (Result);
   decimals : () -> (nat8) query;
   getAllowanceSize : () -> (nat64) query;
-  getHolders : (nat64, nat64) -> (vec record { principal; nat64 }) query;
+  getHolders : (nat64, nat64) -> (vec record { principal; nat }) query;
   getLogo : () -> (text) query;
   getMetadta : () -> (Metadata) query;
   getTokenInfo : () -> (TokenInfo) query;
   getTransaction : (nat64) -> (OpRecord) query;
   getTransactions : (nat64, nat64) -> (vec OpRecord) query;
-  getUserApprovals : (principal) -> (vec record { principal; nat64 }) query;
+  getUserApprovals : (principal) -> (vec record { principal; nat }) query;
   getUserTransactionAmount : (principal) -> (nat64) query;
   getUserTransactions : (principal, nat64, nat64) -> (vec OpRecord) query;
   historySize : () -> (nat64) query;
-  mint : (principal, nat64) -> (Result);
+  mint : (principal, nat) -> (Result);
   name : () -> (text) query;
   owner : () -> (principal) query;
-  setFee : (nat64) -> ();
+  setFee : (nat) -> ();
   setFeeTo : (principal) -> ();
   setLogo : (text) -> ();
   setOwner : (principal) -> ();
   symbol : () -> (text) query;
-  totalSupply : () -> (nat64) query;
-  transfer : (principal, nat64) -> (Result);
-  transferFrom : (principal, principal, nat64) -> (Result);
+  totalSupply : () -> (nat) query;
+  transfer : (principal, nat) -> (Result);
+  transferFrom : (principal, principal, nat) -> (Result);
 }
