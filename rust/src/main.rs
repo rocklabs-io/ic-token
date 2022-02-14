@@ -1,8 +1,8 @@
 /**
 * Module     : main.rs
-* Copyright  : 2021 DFinance Team
+* Copyright  : 2021 Rocklabs
 * License    : Apache 2.0 with LLVM Exception
-* Maintainer : DFinance Team <hello@dfinance.ai>
+* Maintainer : Rocklabs <hello@rocklabs.io>
 * Stability  : Experimental
 */
 use candid::{candid_method, CandidType, Deserialize, types::number::Nat};
