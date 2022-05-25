@@ -44,7 +44,7 @@ echo == Install token canister
 echo
 
 HOME=$ALICE_HOME
-eval dfx canister --no-wallet install token --argument="'(\"Test Token Logo\", \"Test Token Name\", \"Test Token Symbol\", 3, 1000000, $ALICE_PUBLIC_KEY, 0)'"
+eval dfx canister --no-wallet install token --argument="'(\"https://api.google.com/1\", \"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY, true, true)'"
 
 echo
 echo == Initial setting for token canister
@@ -172,6 +172,21 @@ echo FeeTo = $( \
 )
 
 echo
+echo == all holding account
+echo
+eval dfx canister --no-wallet  call token getAllAccounts
+
+echo
+echo == getAllAllowed
+echo
+dfx canister --no-wallet  call token getAllAllowed
+
+echo
+echo == all History
+echo
+eval dfx canister --no-wallet call token allHistory
+
+echo
 echo == Alice grants Dan permission to spend 50 of her tokens, should success.
 echo
 
@@ -285,8 +300,12 @@ echo
 echo == Alice allowances
 echo
 
-echo Alices allowance for Bob = $( eval dfx canister --no-wallet call token allowance "'($ALICE_PUBLIC_KEY, $BOB_PUBLIC_KEY)'" )
-echo Alices allowance for Dan = $( eval dfx canister --no-wallet call token allowance "'($ALICE_PUBLIC_KEY, $DAN_PUBLIC_KEY)'" )
+echo Alices allowance for Bob = $( \
+    eval dfx canister --no-wallet call token allowance "'($ALICE_PUBLIC_KEY, $BOB_PUBLIC_KEY)'" \
+)
+echo Alices allowance for Dan = $( \
+    eval dfx canister --no-wallet call token allowance "'($ALICE_PUBLIC_KEY, $DAN_PUBLIC_KEY)'" \
+)
 
 echo
 echo == Dan grants Bob permission to spend 100 of this tokens, should success.
@@ -330,120 +349,120 @@ echo Dan allowance for Alice = $( \
 )
 
 echo
-echo == logo
+echo == all History
 echo
-eval dfx canister --no-wallet call token logo
+eval dfx canister --no-wallet call token allHistory
 
 echo
-echo == name
+echo == all holding account
 echo
-eval dfx canister --no-wallet call token name
+eval dfx canister --no-wallet  call token getAllAccounts
 
 echo
-echo == symbol
+echo == Metadata
 echo
-eval dfx canister --no-wallet call token symbol
+dfx canister --no-wallet call token getMetadata
 
 echo
-echo == decimals
+echo == userNumber
 echo
-eval dfx canister --no-wallet call token decimals
+dfx canister --no-wallet  call token getHolderNumber
 
 echo
-echo == totalSupply
+echo == getCycles
 echo
-eval dfx canister --no-wallet call token totalSupply
+dfx canister --no-wallet  call token getCycles
 
 echo
-echo == getMetadata
+echo == getAllAllowedNumber
 echo
-eval dfx canister --no-wallet call token getMetadata
+dfx canister --no-wallet  call token getAllAllowedNumber
 
 echo
-echo == historySize
+echo == getAllAllowed
 echo
-eval dfx canister --no-wallet call token historySize
+dfx canister --no-wallet  call token getAllAllowed
 
 echo
-echo == getTransaction
+echo == get alice History
 echo
-eval dfx canister --no-wallet call token getTransaction "'(1)'"
-
-echo
-echo == getTransactions
-echo
-eval dfx canister --no-wallet call token getTransactions "'(0,100)'" 
-
-echo
-echo == getUserTransactionAmount
-echo
-eval dfx canister --no-wallet  call token getUserTransactionAmount "'($ALICE_PUBLIC_KEY)'" 
-
-echo
-echo == getUserTransactions
-echo
-eval dfx canister --no-wallet call token getUserTransactions "'($ALICE_PUBLIC_KEY, 0, 1000)'"
-
-echo
-echo == getTokenInfo
-echo
-eval dfx canister --no-wallet  call token getTokenInfo
-
-echo
-echo == getHolders
-echo
-eval dfx canister --no-wallet  call token getHolders "'(0,100)'"
-
-echo
-echo == getAllowanceSize
-echo
-eval dfx canister --no-wallet  call token getAllowanceSize
-
-echo
-echo == getUserApprovals
-echo
-eval dfx canister --no-wallet  call token getUserApprovals "'($ALICE_PUBLIC_KEY)'"
-
-echo
-echo == get alice getUserTransactions
-echo
-eval dfx canister --no-wallet  call token getUserTransactions "'($ALICE_PUBLIC_KEY, 0, 1000)'"
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($ALICE_PUBLIC_KEY)'"
 
 echo
 echo == get bob History
 echo
-eval dfx canister --no-wallet  call token getUserTransactions "'($BOB_PUBLIC_KEY, 0, 1000)'"
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($BOB_PUBLIC_KEY)'"
 
 echo
 echo == get dan History
 echo
-eval dfx canister --no-wallet  call token getUserTransactions "'($DAN_PUBLIC_KEY, 0, 1000)'"
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($DAN_PUBLIC_KEY)'"
 
 echo
 echo == get fee History
 echo
-eval dfx canister --no-wallet  call token getUserTransactions "'($FEE_PUBLIC_KEY, 0, 1000)'"
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($FEE_PUBLIC_KEY)'"
 
 
 echo
 echo == Upgrade token
 echo
 HOME=$ALICE_HOME
-eval dfx canister --no-wallet install token --argument="'(\"test\", \"Test Token\", \"TT\", 2, 100, $ALICE_PUBLIC_KEY)'" -m=upgrade
+eval dfx canister --no-wallet install token --argument="'(\"https://api.google.com/2\", \"Test Token\", \"TT\", 3, 1000000, $ALICE_PUBLIC_KEY)'" -m=upgrade
 
 echo
 echo == all History
 echo
-eval dfx canister --no-wallet call token getTransactions "'(0, 1000)'"
+eval dfx canister --no-wallet call token allHistory
 
 echo
-echo == getTokenInfo
+echo == all holding account
 echo
-dfx canister --no-wallet call token getTokenInfo
+eval dfx canister --no-wallet  call token getAllAccounts
+
+echo
+echo == Metadata
+echo
+dfx canister --no-wallet call token getMetadata
+
+echo
+echo == userNumber
+echo
+dfx canister --no-wallet  call token getHolderNumber
+
+echo
+echo == getCycles
+echo
+dfx canister --no-wallet  call token getCycles
+
+echo
+echo == getAllAllowedNumber
+echo
+dfx canister --no-wallet  call token getAllAllowedNumber
+
+echo
+echo == getAllAllowed
+echo
+dfx canister --no-wallet  call token getAllAllowed
 
 echo
 echo == get alice History
 echo
-eval dfx canister --no-wallet  call token getUserTransactions "'($ALICE_PUBLIC_KEY, 0, 1000)'"
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($ALICE_PUBLIC_KEY)'"
+
+echo
+echo == get bob History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($BOB_PUBLIC_KEY)'"
+
+echo
+echo == get dan History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($DAN_PUBLIC_KEY)'"
+
+echo
+echo == get fee History
+echo
+eval dfx canister --no-wallet  call token getHistoryByAccount "'($FEE_PUBLIC_KEY)'"
 
 dfx stop
